@@ -8,6 +8,7 @@ I'm Jesse Keating, a Datacenter Engineer with GitHub. When I'm not a the compute
 
 I'm also on Twitter as [@iamjkeating](https://twitter.com/iamjkeating).
 
+## {{ page.list_title | default: "Posts" }}
 <ul class="post-list">
     {%- for post in site.posts -%}
     <li>
