@@ -8,8 +8,7 @@ I'm Jesse Keating, a Datacenter Engineer with GitHub. When I'm not a the compute
 
 I'm also on Twitter as [@iamjkeating](https://twitter.com/iamjkeating).
 
-{%- if site.posts.size > 0 -%}
-<h2 class="post-list-heading">{{ page.list_title | default: "Posts" }}</h2>
+## {{ page.list_title | default: "Posts" }}
 <ul class="post-list">
     {%- for post in site.posts -%}
     <li>
@@ -23,4 +22,3 @@ I'm also on Twitter as [@iamjkeating](https://twitter.com/iamjkeating).
     </li>
     {%- endfor -%}
 </ul>
-{%- endif -%}
