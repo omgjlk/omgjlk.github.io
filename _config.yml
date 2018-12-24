@@ -6,3 +6,4 @@ theme: jekyll-theme-hacker
 url: https://omgjlk.github.io
 twitter_username: iamjkeating
 github_username: omgjlk
+show_excerpts: true
