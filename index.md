@@ -22,3 +22,5 @@ I'm also on Twitter as [@iamjkeating](https://twitter.com/iamjkeating).
     </li>
     {%- endfor -%}
 </ul>
+
+Subscribe to posts via an [atom feed](/feed.xml)!
