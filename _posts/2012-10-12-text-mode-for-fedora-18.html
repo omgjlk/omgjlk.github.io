@@ -1,0 +1,87 @@
+---
+layout: post
+status: publish
+published: true
+title: Text Mode for Fedora 18
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 15
+wordpress_url: https://derpops.bike/?p=15
+date: '2012-10-12 20:05:00 +0000'
+date_gmt: '2012-10-12 20:05:00 +0000'
+categories:
+- Red Hat
+tags: []
+comments:
+- id: 8
+  author: Mahrud
+  author_email: noreply@blogger.com
+  author_url: http://algorithms.ir/~mahrud/blog/
+  date: '2012-10-13 05:55:36 +0000'
+  date_gmt: '2012-10-13 05:55:36 +0000'
+  content: Are the specifications for how to pick installation source changed? Strangely
+    it doesn't work for me anymore. Do you know where can I find related documentation
+    or a manual about boot time arguments? They are really scattered.
+- id: 10
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2012-10-13 06:26:49 +0000'
+  date_gmt: '2012-10-13 06:26:49 +0000'
+  content: The specification has changed a bit.<br /><br />There are two things you
+    can define at boot time:<br /><br />1) where to get "stage2", the actual anaconda
+    runtime environment.<br /><br />2) where to get packages from<br /><br />Often
+    the two are one in the same, e.g. a public mirror or an NFS mount, but sometimes
+    they are separate.<br /><br />inst.stage2= is a way to indicate where to find
+    the stage2 content.<br /><br />inst.repo= is a way to indicate where to find the
+    packages.  <br /><br />If inst.repo is provided all by itself, anaconda will first
+    attempt to automatically discover stage2 on whatever boot media you used, and
+    failing that it will look for stage2 within the  provided by inst.repo.<br /><br
+    />If inst.stage2 is provided by itself anaconda does /not/ look within the stage2
+    location for packages.<br /><br />As for documentation of boot time arguments,
+    see https://fedoraproject.org/wiki/Anaconda_Boot_Options (also see the note at
+    the top linking to a draft of recent changes)<br /><br />Sadly, as with most projects,
+    documentation comes after code, so there is always a chance that the docs have
+    fallen behind actual code.
+- id: 11
+  author: Mahrud
+  author_email: noreply@blogger.com
+  author_url: http://algorithms.ir/~mahrud/blog/
+  date: '2012-10-13 07:52:43 +0000'
+  date_gmt: '2012-10-13 07:52:43 +0000'
+  content: Worked far better than I expected (both boot arguments and  text mode installation.)
+    Thank you guys!
+- id: 12
+  author: Kjetil
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/08823836931032346500
+  date: '2012-10-13 20:22:45 +0000'
+  date_gmt: '2012-10-13 20:22:45 +0000'
+  content: What are the memory requirements for the new anaconda in text-mode? Can
+    I install with only 128 mb, 192 mb or 256 mb?<br /><br />
+- id: 14
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2012-10-15 17:39:00 +0000'
+  date_gmt: '2012-10-15 17:39:00 +0000'
+  content: We're still working out what the memory requirements are.  The redesign
+    has invalidated some of our old data here, and there may be some memory leaks
+    we need to shore up.  Hopefully between Beta and Final we can nail down memory
+    requirements.<br /><br />I'd like to be able to do a text mode install over NFS
+    with 192 or 256 megs of ram.  You'd have to boot in a way that you get stage2
+    without downloading it into memory though, such as NFS stage2, or boot from optical
+    media (or virt mounted iso).
+---
+<p>Anaconda has been through a pretty major UI rewrite.&nbsp; Anybody that has tried either Fedora 18 Alpha or any of the nightly images since then should be well aware of this.</p>
+<p>The UI rewrite was done for many reasons and accomplishes many goals.&nbsp; I'm not going to rehash that here.&nbsp; What I am going to talk about is what happened to text mode.</p>
+<p>Text mode in F17 and before was ncurses based.&nbsp; This gave some kind of pretty UI to do things.&nbsp; There were drawbacks though.&nbsp; ncurses didn't work on all the terminals people throw at Anaconda, in particular dumb serial terminals and x3270, the terminal for s390x.&nbsp; Because of that we also had a (non-interactive) very simple display mode called 'cmdline'.&nbsp; This just did simple line printing of progress during a kickstart.&nbsp; Unfortunately due to the way the old UI was coded there wasn't a good complete separation of presentation from computation so many things were written 3 times.&nbsp; Once for gui, once for text, and once for cmdline.&nbsp; Fun right?</p>
+<p>With Fedora 18 there is one text UI.&nbsp; It is used on full featured consoles as well as dumb ones.&nbsp; It doesn't use ncurses, it just uses simple line printing.&nbsp; It can be used over serial (interactively!) and over x3270 (non-interactively).&nbsp; It is a simple question and answer prompt.</p>
+<p>The design of text mode for F18 and beyond is closely modelled after the design of the GUI for F18 and beyond.&nbsp; A hub and a set of spokes, so that users can do tasks in whatever order they wish, potentially while things happen in the background.&nbsp; There is a main setup hub where the user can set a time zone, set a root password, and do some basic storage configuration (pick target disks and a strategy to clear space on those disks).&nbsp; Once all tasks are complete the user can progress into the actual installation where we just throw up a running list of tasks the backend is accomplishing.</p>
+<p>There are very few things you can do with text mode in Fedora 18.&nbsp; You cannot pick languages,&nbsp; and you cannot pick installation source.&nbsp; These can be provided via boot time arguments.&nbsp; You also cannot do advanced storage configuration which would need a kickstart file to accomplish via "text mode".&nbsp; We are planning to add some functionality for Fedora 19, but we haven't decided which items and how rich those items will be.&nbsp; Text mode is still de-emphasized in favor of direct GUI or remote GUI by way of VNC.&nbsp; For kickstarts however text mode is still pretty great.&nbsp; The minimal UI does not prevent a fully customized kickstart from being executed.</p>
+<p>Give text mode a spin!&nbsp; It's simple, fast, unobtrusive, and gets the job done.</p>

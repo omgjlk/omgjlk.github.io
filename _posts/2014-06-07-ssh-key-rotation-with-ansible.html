@@ -1,0 +1,119 @@
+---
+layout: post
+status: publish
+published: true
+title: SSH Key Rotation with Ansible
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 47
+wordpress_url: https://derpops.bike/?p=47
+date: '2014-06-07 12:14:08 +0000'
+date_gmt: '2014-06-07 12:14:08 +0000'
+categories:
+- Ansible
+tags:
+- ssh
+- ansible
+comments:
+- id: 35
+  author: SSH Key Rotation with Ansible | computerscience...
+  author_email: ''
+  author_url: http://www.scoop.it/t/computerscience-by-justin-miller-2/p/4024359935/2014/07/09/ssh-key-rotation-with-ansible
+  date: '2014-07-09 22:19:42 +0000'
+  date_gmt: '2014-07-09 22:19:42 +0000'
+  content: "[&#8230;] Introduction to SSH Keys SSH keys are fantastic things. They
+    provide a 2-part blob of data, a private part and a public part, that can be used
+    to authenticate ssh connections. You keep the private ...&nbsp; [&#8230;]"
+---
+<h2>Introduction to SSH Keys</h2>
+<p>SSH keys are fantastic things. They provide a 2-part blob of data, a private part and a public part, that can be used to authenticate ssh connections. You keep the private part private, often with a passphrase to "unlock" it, while you can hand out the public part to things like <a title="GitHub SSH Help" href="https://help.github.com/articles/generating-ssh-keys" target="_blank">GitHub</a>, <a title="Keypairs for Rackspace Cloud Servers" href="http://www.rackspace.com/knowledge_center/article/manage-ssh-key-pairs-for-cloud-servers-with-python-novaclient" target="_blank">compute clouds</a>,&nbsp; <a title="Fedora Account System SSH" href="https://fedoraproject.org/wiki/Account_System#What_is_an_SSH_key.2C_and_why_do_I_need_one.3F" target="_blank">other systems</a> that you might wish to connect to via SSH, and remote servers you will ssh to. The public part of your SSH key pair gets stored in a special file that SSH servers on remote systems read, the <a title="authorized_keys format" href="http://en.wikibooks.org/wiki/OpenSSH/Client_Configuration_Files#.7E.2F.ssh.2Fauthorized_keys" target="_blank">authorized_keys</a> file. When you connect, your ssh client will provide details about your private key that the remote end can validate against your public key to authenticate you. This is a great convenience over having to provide a password every single time.</p>
+<p>This convenience for users is also a necessity for infrastructure administration. SSH is ubiquitous in the Linux world, and the vast majority of administration is accomplished over SSH. Without the ability to use SSH Keys (or similar auth mechanisms) one would not be able to automate actions across many systems easily.</p>
+<p>With convenience comes responsibility though. Having a key that an automated process can use to manipulate your fleet of systems is great, but it's also a pretty juicy attack vector. For that reason it is good practice to rotate your keys often. Rotating keys is the act of replacing the keys you're currently using with new keys, and removing the ability for old keys to be used to log into your systems.</p>
+<p>Rotating keys requires a new key. Creating a new key is <a title="SSH Keygen" href="http://www.rackspace.com/knowledge_center/article/connecting-to-a-server-using-ssh-on-linux-or-mac-os#SSH_keygen" target="_blank">fairly simple</a>. Getting the public part of this key out into your fleet, and removing existing public keys is a bit harder. Thankfully we have orchestration and automation tools such as <a title="Ansible" href="http://www.ansible.com" target="_blank">Ansible</a>. The rest of this blog post will discuss how to use Ansible to automate rotating your ssh credentials across your fleet.</p>
+<h2>Orchestrating SSH Key Rotation</h2>
+<p>Lets consider the steps necessary to rotate a key:</p>
+<ol>
+<li>Create a new key</li>
+<li>Add new key to authorized_keys files on your fleet</li>
+<li>Test new key</li>
+<li>Remove previous keys from authorized_keys files</li>
+</ol>
+<p>As stated before, step 1 is simple, and for the sake of this post we'll assume that this has been completed, and there is a new key-pair, located at ~/.ssh/id_rsa_new and ~/.ssh/id_rsa_new.pub. The private key part is id_rsa_new, the public is id_rsa_new.pub. It's the pub we need to distribute. For now, we'll also assume that this key has not yet replaced the existing key, and we can still use the existing key to reach our fleet.</p>
+<p>Step 2 is adding the new key to the authorized_keys file. This is where our <a href="http://docs.ansible.com/playbooks.html" target="_blank">Ansible playbook</a> will begin. First we need a play header and a couple variables defined to reference the public and private parts of our new key-pair.</p>
+<pre class="theme:neon nums:false lang:yaml decode:true">- name: Rotate SSH Keys
+  hosts: all
+  vars:
+    - new_pub_key: ~/.ssh/id_rsa_new.pub
+    - new_priv_key: ~/.ssh/id_rsa_new
+
+  tasks:
+</pre>
+<p>Next we'll need a task to copy the public part of our new key-pair to the remote hosts. For this we will use the <a title="authorized_keys module documentation" href="http://docs.ansible.com/authorized_key_module.html" target="_blank">authorized_key</a> module. This module allows us to provide a key to add, which we will do.</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="key add task">    - name: Add new key to authorized_keys
+      authorized_key: key="{{ lookup('file', new_pub_key) }}"
+                      user=root state=present
+</pre>
+<p>Now for step 3, we will want to test this new key, to make sure that our new key addition is working. To do this, we will need to direct Ansible to use our new private key when connecting to our servers. We can use a <a href="http://docs.ansible.com/set_fact_module.html" target="_blank">set_fact</a> task to set ansible_ssh_private_key variable to our new private key.</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="set_fact task">    - name: Make use of new private key when connecting
+      set_fact: ansible_private_ssh_key={{ new_priv_key }}</pre>
+<p>Our next task will make use of this new key when creating the connection (provided <a title="SSH Multiplexing" href="http://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing" target="_blank">ControlPersist</a> is not at play).</p>
+<p>The next task is step 4, removing previous keys. Because of our previous task, this step will make use of the new key, and accomplish step 3 along the way.</p>
+<p>Currently, the authorized_key Ansible module does not have a method to remove all but the specified ssh key. However I have sent a <a title="exclusive pull request" href="https://github.com/ansible/ansible/pull/7680" target="_blank">pull request</a> to accomplish this, by way of the <strong>exclusive</strong> keyword. The task here will assume that this pull request has merged.</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="set new key exclusively">    - name: Make our new key exclusive
+      authorized_key: key="{{ lookup('file', new_pub_key) }}"
+                      user=root state=present exclusive=yes</pre>
+<p>This task looks just like the first task, but with the addition of exclusive=yes. If you don't want to use the modified authorized_key module, you could make use of the <a title="Copy module documentation" href="http://docs.ansible.com/copy_module.html" target="_blank">copy</a> module which could get content from the new_pub_key file similar to how authorized_key gets content from the file.</p>
+<p>If all has gone well, all that should be left in the authorized_keys file is the public part of our new key-pair. Our new key has been successfully rotated in and the old key is no longer allowed to log in.</p>
+<h2>Next Steps</h2>
+<p>There are more things we could do with our playbook. We could automate the creation of the key itself, which would look something like this:</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="generate a new key">    - name: Create new ssh key-pair
+      command: ssh-keygen -t rsa -N "" -q
+               -f {{ new_priv_key }}
+      when: inventory_hostname == play_hosts[0]
+      delegate_to: localhost</pre>
+<p>The when conditional here makes sure that only one key is generated, by only running on the first&nbsp; host. Delegation is also used to make the action happen on the system calling ansible, rather than a remote host.</p>
+<p>We could also move the private key file into a location that our local ssh config is prepared to use by default:</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="move key into position">    - name: Move new key into default location
+      command: mv {{ new_priv_key }} ~/.ssh/id_rsa
+      when: inventory_hostname == play_hosts[0]
+      delegate_to: localhost</pre>
+<p>Any number of other tasks could be added around these, or specific options to the existing tasks. This blog post is just enough to get you started.</p>
+<h2>Conclusion</h2>
+<p>SSH keys are awesome. Anybody using ssh should be using keys. Keys are powerful, and thus need care. Rotate keys frequently and make sure to invalidate old keys. Automation can make this process a lot easier and more reliable.</p>
+<p>For convenience, here is a complete playbook code block:</p>
+<pre class="theme:neon nums:false lang:yaml decode:true" title="Complete rotation playbook">---
+- name: Rotate SSH Keys
+  hosts: all
+  vars:
+    - new_pub_key: ~/.ssh/id_rsa_new.pub
+    - new_priv_key: ~/.ssh/id_rsa_new
+
+  tasks:
+    - name: Create new ssh key-pair
+      command: ssh-keygen -t rsa -N "" -q
+               -f {{ new_priv_key }}
+      when: inventory_hostname == play_hosts[0]
+      delegate_to: localhost
+
+    - name: Add new key to authorized_keys
+      authorized_key: key="{{ lookup('file', new_pub_key) }}"
+                      user=root state=present
+
+    - name: Make use of new private key when connecting
+      set_fact: ansible_private_ssh_key={{ new_priv_key }}
+
+    - name: Make our new key exclusive
+      authorized_key: key="{{ lookup('file', new_pub_key) }}"
+                      user=root state=present exclusive=yes
+
+    - name: Move new key into default location
+      command: mv {{ new_priv_key }} ~/.ssh/id_rsa
+      when: inventory_hostname == play_hosts[0]
+      delegate_to: localhost</pre>
+<p>And lastly here is a horn-less unicorn pooping a rainbow I found on photobucket, because this post has been far too serious.</p>
+<p><a href="http://smg.photobucket.com/user/Master_Becca/media/unicorn.png.html"><img src="http://img.photobucket.com/albums/v629/Master_Becca/unicorn.png" alt="Wheeeeee!" width="1024" height="768" /></a></p>

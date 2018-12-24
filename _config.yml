@@ -1,1 +1,9 @@
+title: Derp Ops -- The blog of Jesse Keating
+description: >
+  A computer, bike, and climb nerd living in the Pacific Northwest.
+  I do cloudy things with computers, currently at GitHub.
 theme: jekyll-theme-hacker
+url: https://omgjlk.github.io
+twitter_username: iamjkeating
+github_username: omgjlk
+show_excerpts: true

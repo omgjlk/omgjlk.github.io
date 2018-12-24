@@ -1,0 +1,52 @@
+---
+layout: post
+status: publish
+published: true
+title: OpenStack Nova and Hypervisor disk consumption
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 104
+wordpress_url: https://derpops.bike/?p=104
+date: '2016-10-07 23:32:50 +0000'
+date_gmt: '2016-10-07 23:32:50 +0000'
+categories:
+- computers
+- OpenStack
+tags: []
+comments: []
+---
+<p>Recently I found myself in a situation at $DAYJOB where I needed to account for the local disk consumption of a nova-compute node, a hypervisor. I had a heck of a time gathering all the information I needed to figure out why the space was being consumed the way it was, and since I couldn't find a single source for all this information I felt it was best to write up a post about it (so that I can find it next time I'm in the same scenario).</p>
+<p>This post&nbsp;explores the various ways Nova consumes hypervisor disk space with regard to instance images and booting.</p>
+<blockquote><p>A Nova setup with libvirt/kvm as the hypervisor, ephemeral disk space being provided by a filesystem directory is assumed, and instances booting with ephemeral disk as opposed to Block Storage volumes.</p></blockquote>
+<p>There are two main ways Nova consumes the underlying hypervisor disk space: cached images downloaded from the image service (<strong>Glance</strong>) and instance ephemeral disk files. All of this content is stored in Nova's&nbsp;<em>state path</em>, which by default is configured for `/var/lib/nova/`. In our setup, we mount a filesystem to Nova's sate path so that we can contain the disk usage to the images and instances that are booted on the system, without risk of filling up `/` or other critical filesystems.</p>
+<h2 id="magicdomid3642" class="ace-line" data-node-type="line"><span class="author-251255997 font-color-000000 font-size-medium">Image cache</span></h2>
+<p>Nova make use of an image cache on each hypervisor. This is a place where each image that's used to boot an instance is downloaded to and preserved for a period of time. Each time a new instance is created on a hypervisor, the disk cache is checked to see if the image requested for the instance is already in the cache. If it is, that image is used then as the basis for the instance. If not, the image is downloaded from the image store and placed in the cache. This cache is typically on the same filesystem as where Nova stores the instance data (the state path), and thus the images in the cache will account for some amount of overall disk usage and availability for instances. Images in the cache are held for a period of time determined by configuration. Whether to clean unused cache images is a configuration toggle, along with a minimum age for the image before discarding the image.</p>
+<p>The amount of space consumed by an image in the cache depends on details from the image itself. While the listed size of the image in the image store may be small, either due to compression or just overall content, the <em>virtual size</em> of the image may be much larger. This virtual size is used as a value to resize the downloaded image to, as Nova will resize each downloaded image to the match&nbsp;the virtual size.</p>
+<p>The virtual size of the image depends on how the image was created, the source of the image, and the options used while creating the image. When using the `qemu-img` tool to create an image, a size can be specified. This will become the virtual size of the image. If creating an image of an existing instance, either by way of an image creation or a backup (which uses the same method), the size of the image will be matched to the size of disk for the flavor the instance uses. If the instance's flavor states a 200G disk, then the image virtual size from that instance will be 200G, regardless of how little space is actually consumed within the instance.</p>
+<p>During an instance creation, Nova downloads an image from glance, checks the virtual size of the image, and resizes the file to the virtual size of the image. This file is saved in an `instances/_base/` subdirectory within Nova's state path. The resize creates a <em>sparse file</em>, where the apparent size matches the virtual size, when&nbsp;the actual consumed size may be much lower. Use of the `du` utility can show the difference: `du -h --apparent-size <file>` vs `du -h <file>`.</p>
+<h2>Instance ephemeral disk</h2>
+<p>Each server instance that Nova manages will have its own directory to store data. Part of that data is the <em>ephemeral disk</em> data, the data within the instance itself. The amount of space consumed by the ephemeral disk depends on configuration details of Nova, and on the flavor of the instance.</p>
+<h4>Copy on write</h4>
+<p>During an instance creation attempt, Nova will&nbsp;download and resize the base image, if the base image doesn't already exist. Then Nova may either create a<em> copy on write</em> file for the instance, linked to the base image, or copy the entire base image for the instance with no linkage. This decision is based on a configuration entry, `use_cow_images`, which defaults to `True`.</p>
+<p>A copy on write file is an overlay file that will <em>overlay</em> on top of the base image file and keep track of any changes to the filesystem within the image.</p>
+<p>If copy on write is desired, overlays are created from the base image to the `instances/<uuid>/disk` file within the state path. Otherwise a direct copy will be made to the same path.</p>
+<h4>Preallocation</h4>
+<p>In either case, Nova may make a call to pre-allocate enough blocks on that file to be able to fill the size of the flavor's disk. This is determined by a configuration&nbsp;entry `preallocate_image`.</p>
+<p>If copy on write is used then the file will appear one of two ways. Without image preallocation, the file will only be as large as the amount of change that has occurred in the file since boot, thus it can be quite small to start with, but may expand to the full size of the flavor's disk size. With image preallocation set, both the apparent and actual size will be the full size of the flavor's disk size.</p>
+<p>If a direct copy of the image file is used, then the file will appear in one of two ways. Without image preallocation, then the file will appear exactly as it does in the image cache. The apparent size will can be quite large, but the actual size will be relatively smaller. With image preallocation, both the apparent and the actual size will be the full size of the flavor's disk size.</p>
+<h4>Launching</h4>
+<p>Qemu will be launched referencing the disk file in `instances/<uuid>/`, which may or may not be linked to the cached image file. This linkage is what determines whether or not an image file in the cache is still "in use", and will prevent Nova from removing the file when it ages out.</p>
+<h2>Conclusion</h2>
+<p>The amount of disk space consumed on a hypervisor depends on numerous factors, such as source image virtual size, the number of active unique images used to boot instances on the hypervisor, and configuration settings regarding disk preallocation and copy on write files. The vast majority of overall consumption of space by Nova will be the sum of all the cached images and all the ephemeral disks for all the instances booted on a given hypervisor.</p>
+<h3>Configuration items that drive decisions</h3>
+<ul>
+<li>`<strong>preallocate_disk</strong>`: Can set to `none` or `space`. If `space`, an `fallocate` call is made on the instance (overlay) disk to allocate enough blocks to cover the flavor disk size. Without preallocating, the underlying hypervisor filesystem can become overcommitted, and if an instance causes enough data change&nbsp;to occur to it's disk file, the host filesystem may become exhausted. An operator could prevent exhaustion by relying on the `DiskFilter` scheduling filter to avoid scheduling instances to where disk has been fully committed, but there are defects and drawbacks to this filter (a subject for a future post). The default value is `none`</li>
+<li>`<strong>use_cow_images</strong>`: Can be set to `True` or `False`. If `True`, the instance's disk file is a copy on write file, attached to the base image in nova's image cache (`instances/_base/`). When this happens, the base image for any booted instance is always held open, and cannot be cleaned. This can drive up the storage overhead on a hypervisor. The default value is `True`.</li>
+<li>`<strong>remove_unused_base_images</strong>`: Can be set to `True` or `False`. If `True`, when a cached image is no longer used by an instance on the hypervisor, and has reached a minimum age, the image will be removed from the cache. This can prevent unbound growth of the image cache on a hypervisor. The default is `True`.</li>
+<li>`<strong>remove_unused_original_minimum_age_seconds</strong>`: An integer of seconds to indicate how old an image file must be before it is a candidate for removal if unused. The default value is `86400`.</li>
+</ul>
