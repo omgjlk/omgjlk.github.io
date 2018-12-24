@@ -1,0 +1,220 @@
+---
+layout: post
+status: publish
+published: true
+title: Documenting python code using sphinx and github
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 11
+wordpress_url: https://derpops.bike/?p=11
+date: '2013-02-19 05:33:00 +0000'
+date_gmt: '2013-02-19 05:33:00 +0000'
+categories:
+- github
+- python
+tags: []
+comments:
+- id: 22
+  author: zkrynicki
+  author_email: noreply@blogger.com
+  author_url: https://launchpad.net/~zkrynicki
+  date: '2013-02-19 15:31:50 +0000'
+  date_gmt: '2013-02-19 15:31:50 +0000'
+  content: I wonder why would you consider using github pages over readthedocs.org
+    for that.
+- id: 23
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2013-02-19 16:42:38 +0000'
+  date_gmt: '2013-02-19 16:42:38 +0000'
+  content: Because if you're code is already hosted in github, it makes sense to host
+    the docs there too.  Only one upstream to push to and keep track of.
+- id: 24
+  author: Samuel A. Falvo II
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/11523132404727383627
+  date: '2013-02-20 19:11:45 +0000'
+  date_gmt: '2013-02-20 19:11:45 +0000'
+  content: The more and more I see posts like this, where GitHub offers yet another
+    complex-to-use feature with various strings attached (e.g., 10 minutes to see
+    results?  Really?), the more I'm convinced Fossil is the right way to go for most
+    projects these days.
+- id: 25
+  author: alan.briolat
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/15649557380793864889
+  date: '2013-02-21 16:29:10 +0000'
+  date_gmt: '2013-02-21 16:29:10 +0000'
+  content: Github "Service Hooks" - look in the settings of your repository and you'll
+    see ReadTheDocs there.  If you enable that, the documentation will automatically
+    get rebuilt when you push to the repository.
+- id: 26
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2013-02-21 17:56:38 +0000'
+  date_gmt: '2013-02-21 17:56:38 +0000'
+  content: Interesting!  I'll play around with that!
+- id: 28
+  author: claudiosparpaglione
+  author_email: noreply@blogger.com
+  author_url: http://claudiosparpaglione.wordpress.com/
+  date: '2013-09-26 19:01:03 +0000'
+  date_gmt: '2013-09-26 19:01:03 +0000'
+  content: Thank you very much, this really helped me a lot! Claudio
+---
+<p><span style="font-family: inherit;">Documentation is good right? Doesn't everybody like to have a good source of documents when working with a piece of software? I know I sure do. But creating documentation can be a drag, and creating pretty documentation can be even more of a drag, more time consuming than writing the code in the first place. Ain't nobody got time for that!</span></p>
+<p><span style="font-family: inherit;">Thankfully there are utilities out there that will help with creating documentation. My language of choice is Python and for generating documentation I like to use <a href="http://sphinx-doc.org/" target="_blank">Sphinx</a>. Sphinx appeals to me because much of the documentation can be auto-generated based on existing code. It works with python docstrings in a way that can be <a href="http://www.python.org/dev/peps/pep-0257/" target="_blank">PEP257</a> compatible</span>. It takes very little setup to get from nothing to decent looking documentation. For an example of what sphinx output can look like, see my <a href="http://j2sol.github.com/pyendeavor/" target="_blank">pyendeavor project</a>.</p>
+<p>The first step is to make frequent use of docstrings in the code. Not only will this help to generate useful documentation later, but it is also really handy for anybody working with the code to understand what the code is doing. A docstring is a string literal that occurs as the first statement in a module, function, class, or method definition. It's more than just a comment, because it will become an attribute of the object itself. When I look at a function or a class init I ask 3 main questions:</p>
+<ol>
+<li>What does this code do?</li>
+<li>What are the inputs to it?</li>
+<li>What will I get in return?</li>
+</ol>
+<p>These questions can be broken down into the docstring very easily:</p>
+<pre class="crayon-selected">def func(foo):
+
+    """This function translates foo into bar
+
+    The input is a foo string
+    the output is a bar string
+    """</pre>
+<p>Those three lines answer the question pretty well, and if we were just going to look at the code and not try to generate html/pdf/whatever documentation we could be done. Instead lets try to give it a little more structure, structure that sphinx will appreciate:</p>
+<pre>def func(foo):
+
+    """This function translates foo into bar
+
+    :param foo: A string to be converted
+    :returns: A bar formatted string
+    """</pre>
+<p>A human reading this docstring is still going to know what's going on pretty well, and sphinx is going to read it even better:</p>
+<p><a style="margin-left: 1em; margin-right: 1em;" href="https://derpops.bike/wp-content/uploads/2013/02/func1.png"><img src="https://derpops.bike/wp-content/uploads/2013/02/func1.png" alt="" border="0" /></a><br />
+The python source files themselves service as input to the documentation creation tool.&nbsp; Just go about the business of writing code and keep the docstrings flowing and updated with changes and very useful documentation can be produced.</p>
+<p>How does one generate the documentation though? How does one use sphinx? I'm glad you asked! Sphinx has a utility that can help get started -- <a href="http://sphinx-doc.org/man/sphinx-apidoc.html" target="_blank">sphinx-apidoc</a>. First make a docs/ subdir of the project (or whatever you want to call it). This is where some sphinx control files will go, although the rendered output doesn't necessarily have to go there. For my example software <a href="https://github.com/j2sol/pyendeavor" target="_blank">pyendeavor</a> I have a single python package, pyendeavor, located in the src/pyendeavor directory. To get started with sphinx, I would issue the command:</p>
+<pre>$ sphinx-apidoc -A "Jesse Keating" -F -o docs src/</pre>
+<p>The F causes a full setup to happen, the -o docs tells sphinx to direct it's output to the newly created docs directory, and the src/ tells sphinx to look in src/ for my modules.</p>
+<pre>$ sphinx-apidoc -F -o docs src/
+Creating file docs/pyendeavor.rst.
+Creating file docs/conf.py.
+Creating file docs/index.rst.
+Creating file docs/Makefile.
+Creating file docs/make.bat.</pre>
+<pre>$ ls docs/
+Makefile       _static        conf.py        make.bat
+_build         _templates     index.rst      pyendeavor.rst</pre>
+<p>Sphinx uses <a href="http://docutils.sourceforge.net/rst.html" target="_blank">reStructuredText</a> as the input format, which is pretty easy to work with.&nbsp; And if we look at the files it generated for us, we'll see that there isn't much there:</p>
+<pre>$ cat docs/index.rst
+.. src documentation master file, created by
+   sphinx-quickstart on Mon Feb 18 17:44:53 2013.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to src's documentation!
+===============================
+
+Contents:
+
+.. toctree::
+   :maxdepth: 4
+
+   pyendeavor
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`</pre>
+<p>And if we look in the pyendevor file we'll see <a href="https://raw.github.com/j2sol/pyendeavor/master/docs/pyendeavor.rst" target="_blank">more</a>, but here is a snippit:</p>
+<pre>:mod:`pyendeavor` Package
+-------------------------
+
+.. automodule:: pyendeavor
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`api` Module
+-----------------
+
+.. automodule:: pyendeavor.api
+    :members:
+    :undoc-members:
+    :show-inheritance:</pre>
+<p>This just tells sphinx to read the module files and generate content for module members, undocumented members, and to follow inheritance. These are all just commands that sphinx understands, but you don't really have to.</p>
+<p>There is a conf.py file that will need some attention. Sphinx will need to know how to import the code, so a system path entry to where the code can be found needs to be added.&nbsp; There is a helpful comment near the top, just clear the hash and update the path:</p>
+<pre>sys.path.insert(0, os.path.abspath('/Users/jkeating/src/pyendeavor/src/'))</pre>
+<p>Now we are ready to make some content! Make sure to be in the docs/ dir and run make. A list of possible make targets will be displayed, but the we care about is 'html', so run that one:</p>
+<pre>$ make html
+
+sphinx-build -b html -d _build/doctrees   . _build/html
+
+Making output directory...
+Running Sphinx v1.1.3
+loading pickled environment... not yet created
+building [html]: targets for 2 source files that are out of date
+updating environment: 2 added, 0 changed, 0 removed
+reading sources... [100%] pyendeavor                                     
+looking for now-outdated files... none found
+pickling environment... done
+checking consistency... done
+preparing documents... done
+writing output... [100%] pyendeavor                                      
+writing additional files... (5 module code pages) _modules/index
+ genindex py-modindex search
+copying static files... WARNING: html_static_path entry '/Users/jkeating/src/pyendeavor/docs/_static' does not exist
+done
+dumping search index... done
+dumping object inventory... done
+build succeeded, 1 warning.
+
+Build finished. The HTML pages are in _build/html.</pre>
+<p>Lots of output, but the end result is some html pages in _build/html/ :</p>
+<pre>$ ls _build/html/
+_modules         genindex.html    py-modindex.html searchindex.js
+_sources         index.html       pyendeavor.html
+_static          objects.inv      search.html</pre>
+<p>A browser can be used to view index.html and all the linked docs. How awesome! Useful documentation without having to do much more than just use docstrings in the code (which should be done anyway).</p>
+<p>Now that docs can be generated, they should be put somewhere useful. That's where the <a href="https://github.com/" target="_blank">github</a> part of this post comes in. A lot of projects are posted on github and I've started using it for more of mine too. One nice feature is a way to create a <a href="http://pages.github.com/" target="_blank">webspace</a> for a project by pushing content to a 'gh-pages' branch of a project. These following steps will help setup a repo to have a place to publish the html content of sphinx. They are based on the directions I found <a href="http://lucasbardella.com/report/hosting-your-sphinx-docs-in-github/" target="_blank">here</a>, however instead of using a directory outside our project space we're going to make use of a git workdir so that we never have to leave the project directory to get things done.</p>
+<p>First lets create a directory to hold our new branch from the top level of our source.</p>
+<pre>$ mkdir gh-pages</pre>
+<p>Next create a new workdir named html within that directory:</p>
+<pre>$ /usr/local/share/git-core/contrib/workdir/git-new-workdir . gh-pages/html</pre>
+<p>(More information about git-new-workdir can be found <a href="http://nuclearsquid.com/writings/git-new-workdir/" target="_blank">here</a> but essentially it is a way to create a subdirectory that can be checked out to a new branch, but all the git content will be linked. A git fetch in the topdir of the clone will also update the git content in the workdir path. No need for multiple pulls.)</p>
+<p>Now we have to prepare the workdir for sphinx content. To do this we need to create an empty gh-pages branch within the html directory:</p>
+<pre>$ cd gh-pages/html
+$ git checkout --orphan gh-pages</pre>
+<p>Initially there will be a copy of the source tree in the html directory that can be blown away with:</p>
+<pre>$ git rm -rf .</pre>
+<p>Back in the docs/ directory a change needs to be made to the Makefile to tell it to output content to where we want it, the gh-pages/html/ directory. Look for:</p>
+<pre>BUILDDIR      = _build</pre>
+<p>and change it to</p>
+<pre>BUILDDIR      = ../gh-pages/html</pre>
+<p>Now from the docs/ directory, run make html again. This time you'll notice that the output goes to ../gh-pages/html/</p>
+<p>Switching back to that directory the files can be added and committed with:</p>
+<pre>$ git add .
+$ git commit -am 'Initial checkin of sphinx generated docs'</pre>
+<p>Now the branch can be pushed to github:</p>
+<pre>$ git push -u origin gh-pages</pre>
+<p>After upwards to 10 minutes later the pages site for the repo can be visited, like mine for <a href="http://j2sol.github.com/pyendeavor/" target="_blank">pyendeavor</a>. Github also has a feature for README files in the base of your repo, supporting/rendering markdown and reStructuredText. This README.rst file can also be included in your pages output with a simple tweak to the index.rst file in docs/. The ..include directive will tell sphinx to include the content from the README.rst file when generating html output:</p>
+<pre>Welcome to pyendeavor's documentation!
+======================================
+.. include:: ../README.rst
+
+Contents:</pre>
+<p>The README.rst file source can be seen <a href="https://raw.github.com/j2sol/pyendeavor/master/README.rst" target="_blank">here</a>. The same content of the README file will display in the generated docs, updating this content only has to happen once.</p>
+<p>It is a good idea to add the control files in docs/ to the repository and keep them under source control:</p>
+<pre>docs/Makefile
+docs/conf.py
+docs/*.rst
+docs/make.bat</pre>
+<p>If new modules or packages are added to the source tree then a new run of sphinx-apidoc is necessary. The -f flag will tell sphinx that it is OK to overwrite the existing files:</p>
+<pre>$ sphinx-apidoc -f -o docs/ src/</pre>
+<p>When functions change or new docstrings are added to the code new html content needs to be generated by running make html and committing/pushing the new content in the gh-pages/html/ directory.</p>
+<p>That's all there is to it, sphinx generated docs rendered by github via the gh-pages branch. All within a single directory tree. Have fun, and get to documenting!</p>

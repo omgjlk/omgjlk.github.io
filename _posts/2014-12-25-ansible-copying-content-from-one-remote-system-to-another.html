@@ -1,0 +1,119 @@
+---
+layout: post
+status: publish
+published: true
+title: Ansible copying content from one remote system to another
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 77
+wordpress_url: https://derpops.bike/?p=77
+date: '2014-12-25 00:10:00 +0000'
+date_gmt: '2014-12-25 00:10:00 +0000'
+categories:
+- computers
+- Ansible
+tags: []
+comments:
+- id: 157
+  author: Kevin Mitchell
+  author_email: klmitch76@gmail.com
+  author_url: https://plus.google.com/103493253802018297849
+  date: '2014-12-25 11:58:46 +0000'
+  date_gmt: '2014-12-25 11:58:46 +0000'
+  content: Is it the "name" key that contains the file name, as you say in the text,
+    or is it the "item" key, which is what you have in the code?
+- id: 158
+  author: jlk
+  author_email: jkeating@j2solutions.net
+  author_url: ''
+  date: '2014-12-26 19:23:45 +0000'
+  date_gmt: '2014-12-26 19:23:45 +0000'
+  content: Excellent question. It's "item" key, I'll fix up the text.
+- id: 159
+  author: Sandeep
+  author_email: sandeepvreddy@gmail.com
+  author_url: http://viewsby.wordpress.com
+  date: '2015-09-11 08:51:57 +0000'
+  date_gmt: '2015-09-11 08:51:57 +0000'
+  content: "Can you please share fill playbook with hostnames.\r\nI am having some
+    difficulty while registered variable(remote_files), can you help me to resolve
+    this issue.\r\nFollowing is my play book:\r\n---\r\n- hosts: host1\r\n  user:
+    root\r\n  sudo: no\r\n  gather_facts: False\r\n\r\n  tasks:\r\n    - name: Remote
+    Read\r\n      slurp: src={{ item }}\r\n      with_items:\r\n        - /root/z\r\n
+    \     register: remote_files\r\n      run_once: true\r\n\r\n- hosts: host2\r\n
+    \ user: root\r\n  sudo: no\r\n  gather_facts: False\r\n\r\n  tasks:\r\n    - name:
+    Remote Write\r\n      copy:\r\n        dest: \"{{ item.item }}\"\r\n        content:
+    \"{{ itme.content | b64decode }}\"\r\n        owner: root\r\n        group: root\r\n
+    \       mode: 700\r\n      with_items: remote_files.results\r\n\r\nOutput:\r\nTASK:
+    [Remote Write] ********************************************************** \r\nfatal:
+    [host2] => One or more undefined variables: 'unicode object' has no attribute
+    'item'\r\n\r\nFATAL: all hosts have already failed -- aborting"
+- id: 161
+  author: goldyfruit
+  author_email: gaetan.trellu@incloudus.com
+  author_url: https://blog.incloudus.com
+  date: '2016-05-12 13:48:40 +0000'
+  date_gmt: '2016-05-12 13:48:40 +0000'
+  content: Nice, thanks :)
+- id: 162
+  author: goldyfruit
+  author_email: gaetan.trellu@incloudus.com
+  author_url: https://blog.incloudus.com
+  date: '2016-05-12 13:59:51 +0000'
+  date_gmt: '2016-05-12 13:59:51 +0000'
+  content: You need to have the /etc/keystone/ssl/ directory created and all sub-directories.
+- id: 163
+  author: pixelfairydevnull
+  author_email: pixelfairy@gmail.com
+  author_url: http://gravatar.com/pixelfairydevnull
+  date: '2017-08-28 08:22:09 +0000'
+  date_gmt: '2017-08-28 08:22:09 +0000'
+  content: "just tried this. had to reference the source host for the destination
+    host to see it. for example,\r\n\r\n  tasks:\r\n  - name: get the file\r\n    slurp:
+    src=/etc/issue\r\n    register: issue\r\n    when: inventory_hostname == \"node1\"\r\n
+    \ - name: put the file\r\n    copy:\r\n      dest: /root/issue\r\n      content:
+    \"{{ hostvars.node1.issue.content | b64decode }}\"\r\n    when: inventory_hostname
+    == \"node2\""
+- id: 164
+  author: jlk
+  author_email: jkeating@j2solutions.net
+  author_url: ''
+  date: '2017-10-25 22:59:21 +0000'
+  date_gmt: '2017-10-25 22:59:21 +0000'
+  content: Ah, yes, that registered variable matches up to the host the task ran on.
+    Good point there.
+---
+<p>Just a quick tip of you're trying to do the same thing I was trying to do.</p>
+<h3>The Problem</h3>
+<p>I am generating some content on Server A. I want to replicate this content onto Servers B and C.</p>
+<h3>The Solution</h3>
+<p>TL;DR: Read files content from Server A. Write files on Servers B and C from those contents.</p>
+<p>Ansible provides a couple modules that make this possible. The first one we'll look at is the <a href="http://docs.ansible.com/slurp_module.html" target="_blank">slurp module</a>. This module allows you to read in contents of a file from a remote system. Here is an task to read the content, utilizing the <a href="http://docs.ansible.com/playbooks_delegation.html#run-once" target="_blank">run_once</a> mechanism:</p>
+<pre class="theme:github toolbar-overlay:false lang:yaml decode:true">- name: slurp keystone certs
+  slurp: src={{ item }}
+  with_items:
+    - /etc/keystone/ssl/certs/ca.pem
+    - /etc/keystone/ssl/certs/signing_cert.pem
+    - /etc/keystone/ssl/private/cakey.pem
+    - /etc/keystone/ssl/private/signing_key.pem
+  register: pki_certs
+  run_once: true</pre>
+<p>This will read each of those files in and save the results in the <strong>pki_certs</strong> variable. Ansible will only do this once, presumably on the host where this content was generated with a previous run_once task. However the variable data will be assigned to every host to make it easily accessible.</p>
+<p>Next we need to write out the content on our other systems. There are a couple things to consider. First, because the files were read via a with_items loop, the registered content is in a list, specifically in <strong>pki_certs.results</strong>. This is easy enough to deal with because the results list is a list of dictionaries, and the name of the file is part of that dictionary. The filename resides in the <strong>item</strong> key, while the content resides in the <strong>content</strong> key. This allows us to template out both the path to be written as well as the content to be written at that path.</p>
+<p>The next thing we need to consider is that the slurp module stores content in base 64 encoding. That means when we write it back out, we need to <em>decode</em> it from base 64, otherwise Ansible will happily write out some long strings that look nothing like your file. To decode from base 64, simply use the <a href="http://docs.ansible.com/playbooks_variables.html#other-useful-filters" target="_blank">b64decode filter</a> on the content variable.</p>
+<p>The last thing to consider has to do with yaml and whitespace and ansible. This may not come into play with every file, but these files have multiple lines. A somewhat recent change in Ansible means that if the "short form" of task description is used (with key=value parameters) your written out file will have <a href="https://github.com/ansible/ansible/issues/9172" target="_blank">double linefeeds</a>. The simple solution is to use "long form" task syntax as you'll see below:</p>
+<pre class="theme:github toolbar-overlay:false lang:yaml decode:true">- name: write out keystone certs
+  copy:
+    dest: "{{ item.item }}"
+    content: "{{ item.content | b64decode }}"
+    owner: keystone
+    group: keystone
+    mode: 0700
+  with_items: pki_certs.results</pre>
+<p>Because every host has access to the <strong>pki_certs</strong> variable this task can run across all of them. You <em>might</em> see a change registered for the first host in the loop, even though it was the source of the content, due to permissions or ownership changes, however subsequent runs will be nice and clean.</p>
+<p>Hopefully this helps you out and saves you from spending an afternoon poking around at it like I just did!</p>

@@ -1,0 +1,34 @@
+---
+layout: post
+status: publish
+published: true
+title: Why I love open source!
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 100
+wordpress_url: https://derpops.bike/?p=100
+date: '2015-09-05 16:42:31 +0000'
+date_gmt: '2015-09-05 16:42:31 +0000'
+categories:
+- github
+- computers
+- Docker
+tags: []
+comments: []
+---
+<p>The other day I decided it was time I got familiar with <a href="https://www.docker.com/" target="_blank">Docker</a>. Yes, I know, I'm a bit late to the party, but better late than never. I understood some of the concepts around Docker, just not necessarily the mechanics, so it was time to dive in.</p>
+<p>Docker these days has a handy utility named <a href="https://docs.docker.com/machine/" target="_blank">docker-machine</a>. This tool is used to create a target system to create docker containers on. This is really useful if you're on a Mac and don't have a kernel that supports containers natively. By using docker-machine I was able to provision a VM via <a href="https://www.virtualbox.org/" target="_blank">VirtualBox</a> that was all set up to run containers. From that point in, docker commands ran as expected, and containers showed up inside the VirtualBox VM.</p>
+<p>This is all well and good, but being a curious nerd I wanted to see what other drivers there were for docker-machine. Unsurprisingly, there are <a href="https://docs.docker.com/machine/drivers/" target="_blank">numerous drivers</a>, many of them cloud based. There is an <a href="https://docs.docker.com/machine/drivers/openstack/" target="_blank">OpenStack</a> driver as well, which is great! My <a href="https://www.blueboxcloud.com/" target="_blank">day job</a> is all about OpenStack and I have numerous clouds at my disposal. The idea of utilizing my cloud to run docker containers just seems natural to me, so that's what I tried to do.</p>
+<p>Unfortunately I ran into a problem. Our clouds work in a way that requires the allocation of a "floating IP" address to an instance in order for that instance to be accessible by the outside world. The docker-machine OpenStack driver supports this, by passing in the correct arguments to tell the driver where to allocate the floating IP from, a pool. It turns out that my account on the cloud I was targeting has admin level rights (a scenario many of my customers will be in), and thus was able to see more available floating IP addresses in the pool than a normal user would, many of which had been allocated to a different project (projects, or tenants in OpenStack are a way to segregate groups of users and resources within a cloud). The docker-machine driver simply attempted to use the first address it thought was available for the instance it just created. In my case, this address had already been allocated to a different tenant and the OpenStack API returned an error when the assignment to my instance was attempted.</p>
+<p>I understood the problem, and I had a general idea of how to fix it. The driver should filter the floating IP addresses by my project ID when searching for an available floating IP to use. I essentially had three choices at this point:<br />
+<strong>Door #1</strong>: If the project didn't have a public bug tracker I could give up on the tool or write a negative review somewhere or a snarky tweet about it and find something else to play with.<br />
+<strong>Door #2</strong>: If the project had a public bug tracker I could file a bug in the tracker and explain the scenario that led to the error. I would just have to wait and hope somebody at the project cared enough to fix my bug.<br />
+<strong>Door #3</strong>:Because docker-machine is an <a href="https://github.com/docker/machine" target="_blank">open source project</a>, I had a third choice. I could pull down the code and try my hand at fixing the problem myself.</p>
+<p>Obviously I went with door #3. I've never looked at the source code behind Docker before (written in <a href="https://golang.org/" target="_blank">Go</a>), but I figured I could fudge my way through a small change. Thankfully the Docker project has spent a fair amount of time thinking about how to make <a href="https://docs.docker.com/project/who-written-for/" target="_blank">contributing</a> to the project an easy process. Numerous documents exist to help guide a first time contributor through <a href="https://docs.docker.com/project/software-required/" target="_blank">setting up a development environment</a>, understanding the <a href="https://docs.docker.com/project/test-and-docs/" target="_blank">code testing tools</a>, and walking through the <a href="https://docs.docker.com/opensource/code/" target="_blank">submission</a> and <a href="http://docs.docker.com/project/review-pr/" target="_blank">review</a> process. Following these guides I was able to start making modifications to the docker-machine code and testing them out on my laptop. What I thought was going to be a simple change turned out to be a more involved code addition, which led me to reading the code and developer documents for a <a href="http://gophercloud.io/" target="_blank">supporting library</a> that docker-machine uses.</p>
+<p>Through much iteration and testing, I was finally able to create a change that resolved my issue in a satisfactory way. Being a good open source citizen, I then <a href="https://github.com/docker/machine/pull/1809" target="_blank">submitted this change</a> back up to the project in hopes of inclusion in a future release. I myself am not currently blocked in using this tool, but I'd like my customers to be able to use this tool as well, in a way that doesn't require me to distribute a modified binary to them.</p>
+<p>This is the real joy of Open Source to me. I found a tool I want to make use of, I discovered a way in which the tool doesn't quite work right for me, I have access to the code to debug the problem, I have access to the documentation and supporting code to develop a solution, and I have the opportunity to contribute a change back to the tool. This process feels so natural to me now that any other way just seems broken. Open Source has enabled me to make my life better, as well as potentially making the life of other users of the software better too, and that gets me right in the feels.</p>

@@ -1,0 +1,74 @@
+---
+layout: post
+status: publish
+published: true
+title: Persistent SSH connections with context!
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 67
+wordpress_url: https://derpops.bike/?p=67
+date: '2014-09-05 20:00:04 +0000'
+date_gmt: '2014-09-05 20:00:04 +0000'
+categories:
+- computers
+tags:
+- devops
+- ssh
+comments:
+- id: 56
+  author: D
+  author_email: dalanmiller@protonmail.ch
+  author_url: ''
+  date: '2014-09-06 14:53:06 +0000'
+  date_gmt: '2014-09-06 14:53:06 +0000'
+  content: "I recently started having this very same problem and came to the exact
+    same setup, except I don't find I need the scrollback search so much and can just
+    rely on doing `history | grep(or ack) 'thing I did'`. \r\n\r\nI'm starting to
+    think though that setting up a cjdns between all my machines would be an ideal
+    situation which would reconnect wherever I was."
+- id: 57
+  author: John Nardello
+  author_email: jnardello@gmail.com
+  author_url: ''
+  date: '2014-09-07 23:26:18 +0000'
+  date_gmt: '2014-09-07 23:26:18 +0000'
+  content: Don't forget to add an SSH key into the mix. Why respond to more password
+    prompts than you have to ? =)
+- id: 58
+  author: jlk
+  author_email: jkeating@j2solutions.net
+  author_url: ''
+  date: '2014-09-07 23:28:58 +0000'
+  date_gmt: '2014-09-07 23:28:58 +0000'
+  content: Yes, right. You need a key for this to work seamlessly. Mosh and autossh
+    directions should mention this.
+- id: 59
+  author: jlk
+  author_email: jkeating@j2solutions.net
+  author_url: ''
+  date: '2014-09-07 23:29:59 +0000'
+  date_gmt: '2014-09-07 23:29:59 +0000'
+  content: Cjdns looks interesting. Sadly it looks to involve more setup on the remote
+    side which I'm trying to avoid, but if that's not a concern for you, awesome!
+---
+<p>SSH, the <a title="OpenSSH" href="http://www.openssh.com/">Secure Shell</a>, is an awesome tool. Rather indispensable for somebody like me who has to operate on remote systems. I use it constantly to either run code from a privileged host or log into systems to diagnose problems. My entire cloud of servers is just a terminal session away.</p>
+<p>I'm also a huge fan of laptops. I really like being portable with my computer. Partly because I work from home, which means I often work from a coffee shop, or various parts of my home. I don't have a "workstation" that I'm tied to, and I haven't for years. I fell in love with the ease in just closing up my laptop and walking outside, or riding my bike to the cafe and opening it back up to continue work right where I left off.</p>
+<p>Unfortunately, over time, the ease of transport has lessened, and for good reasons. First up is the VPN, or Virtual Private Network. VPNs allow me as a remote person to securely log into my employer's network in order to access resources, or SSH into systems. VPNs are ubiquitous now for remote workers. In the good days, my VPN was automatic. If I closed my laptop and relocated within my house, upon opening my laptop the VPN would re-establish itself without my interaction. SSH, with it's built in ability to re-establish communication would often come back fine, and whatever I was working on, i.e. my context, would be saved. But as time went on, automatic VPNs began to be viewed as insecure. They required stored credentials on my laptop, and it mean that whomever had my laptop had access to these credentials. To combat this, VPNs started using "<a href="http://en.wikipedia.org/wiki/One-time_password">One Time Passwords</a>", or OTPs. OTPs come in many flavors, but essentially they combine a Thing You Have (like a number generating physical device) with a Thing You Know (a passphrase only you know) into a unique string of characters. The numbers from the device plus your passphrase. This combo could be used only once to authenticate and after that it was invalid. More secure, but this ended the days of automatically established VPNs, and it often meant that the time it took me to re-establish my VPN went beyond SSH's ability to recover a connection. Because of this I'd often find myself walking around my house with my laptop open rather than closed, to keep my connections running. Not nearly as cool and convenient of just closing it and walking around.</p>
+<p>Of course, this doesn't consider transitions from my home to a coffee shop. Two problems there, length of time to get to my destination exceeds SSH recovery time, and the local network details will have changed, preventing SSH recovery completely. This means whenever I go somewhere not my home, I have to re-establish my SSH session(s) and recover my context.</p>
+<p>Keeping context is a solved problem. There are tools out there that help with this. <a href="http://www.gnu.org/software/screen/">GNU Screen</a> and <a href="http://tmux.sourceforge.net/">Tmux</a> are very popular options. These utilities essentially create a terminal session that is insulated from disconnections. When you reconnect to wherever a screen or tmux session is running, you can re-attach to the session and all your context is back. These tools have been around for a while and work really well, when you remember to do your work inside one of them. However getting to them is still a manual process. I have to wait for my SSH session to finally realize it can't re-establish my connection, then I have to re-issue the SSH connection command on my local laptop, and once connected I have to re-attach to whatever session I was working on. Not a lot of work, but certainly an annoyance.</p>
+<p>What I want is something that will keep my SSH connections persistent. Persistent across network outages or even network relocations. Not only do I want the connection itself persistent, but I want the context within that connection to be persistent as well. I don't just want my ssh connection to re-establish itself should it timeout, I want to be re-attached to whatever session I was working in.</p>
+<p>Thankfully there are a few tools out there that help with this! <a href="https://mosh.mit.edu/">Mosh</a> and <a href="http://www.harding.motd.ca/autossh/">autossh</a>.</p>
+<p>Mosh is kind of the new kid on the block, and is rather interesting. It does a few more things than just keep a persistent connection with context. It also does some things which really help with performance (perceived and actual) over slow connections. When you start a mosh session, it uses ssh to connect to the target and starts some software there, software that your local mosh client will use to communicate with. When the network dies or changes, mosh will quickly re-establish communication with the remote software and your terminal acts as if nothing has changed.</p>
+<p>I played around a bit with mosh when it first came out and discovered some things I didn't like about the setup. First, mosh requires new software be installed on&nbsp; your connection target. This can either be extremely easy, or a nightmare depending on the target, corporate policy, etc... The other thing I really didn't like about mosh is what it does to your local terminal window. I currently use OSX as my operating system, and within it I use <a href="http://iterm2.com/">iTerm2</a> as my terminal emulator. Often I use the built in search function of iTerm2 to find things in scrollback, or I just simply use the touchpad to scroll back my iTerm2 window to read things that have "scrolled off" my screen. These things are quick and natural and useful. Unfortunately the way mosh works, neither of those things are possible. Scrolling back will only show you the things on your terminal from BEFORE you started your mosh session. All that has happened within your mosh session and has scrolled off your screen is lost. Mosh says to use screen or tmux to capture that, and use the scrollback capability of screen or tmux to review or search it. Because of these reasons, I don't use mosh, although I will say it is really neat, and does feel extremely fast. If I worked more on very laggy connections I may feel different about it.</p>
+<p>The other option I mentioned is AutoSSH. AutoSSH is similar to mosh, in that it attempts to re-establish a broken connection, but it is different in a few key ways. First, it's a pure ssh implementation. It does not require additional software to be installed on the remote host, and it does not attempt any communication over anything other than ssh. It does not however attempt to keep context. All it will do by itself is re-establish an ssh connection to a given remote host. In order to retain context, screen or tmux are needed. Thankfully it is trivial to use screen or tmux in a way that automatically (re)connects to a session. In my case, I use screen. Screen has one important feature over Tmux for me, and that feature is the way it does scrollback. When using screen in a iTerm2 window, anything that scrolls off the screen is still in the "history" of iTerm2, which means I can scroll up with the touch pad, or use iTerm2's search feature to find things. This does not work when using Tmux, so I have gone with screen.</p>
+<p>Screen has the ability to with one action either create a new session, or if the session named already exists, disconnect that session from wherever it may be connected and reconnect it to where you are now. That is accomplished via <span class="lang:sh decode:true  crayon-inline ">$ screen -D -R session_name</span>&nbsp; . This can be added to an execution of autossh, so that when autossh initially establishes your connection, or ever re-establishes your connection, the execution will run:</p>
+<pre class="lang:sh decode:true">$ autossh -M 20000 -t host.name 'screen -D -R session_name'</pre>
+<p>This is nearly perfect, but it doesn't seem to react as fast as mosh does to network disconnects and reconnects. This is due to some defaults in autossh, namely how frequently it polls the monitoring port for activity. The default poll time is 600 seconds, which can be quite a long time. I've found that a poll time of 5 seconds seems to keep things feeling fast. To adjust this, it's as simple as adding an environment variable when launching autossh. Also due to a <a href="https://bugs.launchpad.net/ubuntu/+source/autossh/+bug/992110">bug</a> one needs to also adjust the time autossh will wait to first start polling a connection.</p>
+<pre class="lang:sh decode:true">$ AUTOSSH_FIRST_POLL=5 AUTOSSH_POLL=5 autossh -M 20000 -t host.name 'screen -D -R session_name'</pre>
+<p>Now autossh will start monitoring my connection after 5 seconds, and monitor it every 5 seconds for changes. When it reconnects, it will automatically reattach my screen session for context. Any scrollback is still in my terminal window so my local native terminal actions still work, which means I can roam at will without losing my work! Granted, this does require that screen is installed on the remote host, but screen is nearly ubiquitous these days, and hardly ever contentious to get installed if it isn't already on your remote host.</p>
+<p>This setup has made my life more awesome, and I hope it will make your life more awesome too, dear reader. If you have anything to add, or other tricks for this style of work life you'd like to share, please use the comments boxes. They require my approval but I'll get to them quite quickly!</p>

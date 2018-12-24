@@ -1,0 +1,73 @@
+---
+layout: post
+status: publish
+published: true
+title: Well I've been waiting for this moment for all my life...
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 20
+wordpress_url: https://derpops.bike/?p=20
+date: '2012-05-23 01:49:00 +0000'
+date_gmt: '2012-05-23 01:49:00 +0000'
+categories:
+- navel-gazing
+- Red Hat
+tags: []
+comments:
+- id: 3
+  author: skvidal
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/00993961635850065167
+  date: '2012-05-23 03:11:07 +0000'
+  date_gmt: '2012-05-23 03:11:07 +0000'
+  content: phil collins? really?
+- id: 4
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2012-05-23 06:16:49 +0000'
+  date_gmt: '2012-05-23 06:16:49 +0000'
+  content: Has been going through my head all day.  Had to share :)
+- id: 5
+  author: kad
+  author_email: noreply@blogger.com
+  author_url: http://kad.id.fedoraproject.org/
+  date: '2012-05-26 22:41:23 +0000'
+  date_gmt: '2012-05-26 22:41:23 +0000'
+  content: Did your macbook air take forever to show the USB stick as an option after
+    Option-booting? I believe I have the same air model than you, but this one has
+    been particularly picky about booting from usb before.
+- id: 6
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2012-05-27 00:11:29 +0000'
+  date_gmt: '2012-05-27 00:11:29 +0000'
+  content: It did not take overly long no, just booted holding option, and when I
+    plugged in the USB it showed up nearly instantly.
+---
+<p>I can feel it coming in the Air tonight... </p>
+<p>Excuse me a moment whilst I rock out to a killer electronic drum riff.</p>
+<p>still there?&nbsp; Ok.</p>
+<p>I've had a Macbook Air for a while now, not the original air, but the first redesign of it (sadly just before they did another redesign with a better chipset and backlit keyboard, oh well).&nbsp; When I first got it, I went a little crazy, and setup a triple boot system, OS X, Windows (Vista), and Fedora.&nbsp; Sadly, Fedora didn't work so hot.&nbsp; There were graphics issues, sound issues, touchpad issues, wireless issues, I mean, I think the issues had issues.</p>
+<p>So instead of fighting all those issues, I did something even more silly.&nbsp; I found a virt software set in OSX that would allow me to attach a real partition to the guest.&nbsp; I setup a virtual disk image to do a minimal install of Fedora in, then edited the grub config so that it would actually load up the real disk partition as /.&nbsp; This actually worked, surprisingly well.&nbsp; I spent most the time in OSX with various X11 applications ran through ssh, and of course ssh'd into the guest to do all my command line work.&nbsp; It still felt dirty though.&nbsp; I would also let the guest boot up into graphical mode and make that go full screen in OSX Lion, which gave the illusion of using Linux native on the hardware.&nbsp; The upside was that the touchpad worked pretty well, and there weren't network issues.&nbsp; Video still sucked, no gnome-shell for me.</p>
+<p>When I picked out the Air, I was thinking that it would be nice to have some hardware that was not the normal around the water cooler, so that we had a broader set of systems being used every day.&nbsp; I actually thought I could do something to fix issues that came up.&nbsp; Ha, hah.&nbsp; Turns out the most useful thing I could do was hand the system off to people who knew what they were doing. </p>
+<p>Enter Super Hero <a href="http://mjg59.dreamwidth.org/" target="_blank">mjg</a> who decided (or got tasked with, I'm not sure which) that making Fedora work on Apple hardware like my Air was a thing he would do.&nbsp; And he sure did!</p>
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/fedora-air.jpg" style="margin-left: auto; margin-right: auto;"><img border="0" height="300" src="https://derpops.bike/wp-content/uploads/2012/05/fedora-air-300x225.jpg" width="400" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">So you can wipe off that grin, I know where you've been</td>
+</tr>
+</tbody>
+</table>
+<p>That's the Fedora 17 Final (RC3) Desktop Live image being installed to my Air.&nbsp; It couldn't have been easier.&nbsp; dd the iso to a USB stick, boot holding down option, plug in the stick (because I forgot to do that first) and pick the Fedora Media.&nbsp; Anaconda did all the right things (even when I didn't) and I now have a simple dual booting macbook.</p>
+<p>F17 looks awesome.&nbsp; First time I've really used shell, and I like it.&nbsp; Audio works, graphics work, webcam works, touch pad (mostly) works, even the brightness and volume buttons work.&nbsp; I can't wait to haul it down to my local Starbucks on my bike, then show it off to my hipster friends, because you see, I was using Fedora on my Air before it was cool.</p>
+<p>Well I've been waiting for this moment for all my life....</p>

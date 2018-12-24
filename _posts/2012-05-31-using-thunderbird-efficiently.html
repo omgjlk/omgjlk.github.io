@@ -1,0 +1,113 @@
+---
+layout: post
+status: publish
+published: true
+title: Using Thunderbird Efficiently
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 19
+wordpress_url: https://derpops.bike/?p=19
+date: '2012-05-31 06:38:00 +0000'
+date_gmt: '2012-05-31 06:38:00 +0000'
+categories:
+- computers
+tags: []
+comments:
+- id: 15
+  author: Adam Monsen
+  author_email: noreply@blogger.com
+  author_url: http://meonkeys.myopenid.com/
+  date: '2012-10-18 17:58:28 +0000'
+  date_gmt: '2012-10-18 17:58:28 +0000'
+  content: Nice post, thanks.<br /><br />Have you run into issues where Thunderbird
+    improperly threads messages? I have, and it makes the "conversation" feature useless.
+- id: 16
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2012-10-18 21:02:22 +0000'
+  date_gmt: '2012-10-18 21:02:22 +0000'
+  content: I've only seen that once or twice, usually because somebody is using a
+    broken mailer that doesn't contain the right threads.  I think there is an option
+    somewhere to try and thread by subject line too, but I've found that does more
+    harm than good, or did, in some mailer, I don't know.  Wait, who are you?  Why
+    are we here?  WHAT IS GOING ON??!
+---
+<p>I get a lot of email.&nbsp; Some of it I even respond to.&nbsp; A lot of it I would like to respond to it, or follow up on it in some way at some point in time, just not immediately.&nbsp; I don't have all of my email being dumped into a single folder, and I use multiple email accounts too.&nbsp; What do I do?</p>
+<p>I needed a setup that would allow me to:
+<ul>
+<li>Mark messages in a way to follow up later</li>
+<li>Get a quick look at all the messages I've marked for follow up</li>
+<li>Have that quick look work across multiple folders/accounts</li>
+<li>Be able to get context for the message, including my replies</li>
+</ul>
+<p>So what have I done?&nbsp; Lets start with the first item.&nbsp; Thunderbird has a multitude of ways to mark messages.&nbsp; First, I could just leave the mail unread.&nbsp; That's a pretty good indication that something needs to be done.&nbsp; But I'm a tad OCD and I really dislike there being unread messages in my important folders.&nbsp; Next Thunderbird has this concept of Tags.&nbsp; It provides you with a bunch of default tags, and a way to add more. 
+<div style="clear: both; text-align: center;"></div>
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/tags.png" style="margin-left: auto; margin-right: auto;"><img border="0" height="320" src="https://derpops.bike/wp-content/uploads/2012/05/tags-300x300.png" width="320" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">Tags</td>
+<td style="text-align: center;">&nbsp;</td>
+<td style="text-align: center;">&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<p>Tags kinda work, but an IMAP server might not support them, and thus you wouldn't be able to share tags across clients.&nbsp; The next option is marking a message as "Starred".<br />
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/star.png" style="margin-left: auto; margin-right: auto;"><img border="0" height="320" src="https://derpops.bike/wp-content/uploads/2012/05/star-300x300.png" width="320" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">Star me!</td>
+</tr>
+</tbody>
+</table>
+<p>A star seems to be well supported by IMAP servers, and across the clients I was playing with.&nbsp; This solves the "Mark messages for follow up" problem.&nbsp; Thunderbird conveniently has a keyboard short cut, 's', to toggle a message's starred state.</p>
+<p>The next requirement was getting a quick look at the things I needed to follow up on.&nbsp; Thunderbird can search your messages, and you can include the starred state in the query.&nbsp; Further, you can save your search as a folder for convenient access.&nbsp; See <a href="http://kb.mozillazine.org/Saved_Search" target="_blank">this article</a> for how to setup a saved search.&nbsp; I'll spare you the details here.</p>
+<p>Now that I've got a folder I can click on to see what needs to be followed up on, I need to get context for those messages.&nbsp;&nbsp; Right now I'm just looking at a flat list of starred messages, no thread details.&nbsp; Enter a lovely feature: "Open in Conversation".<br />
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/oic.png" style="margin-left: auto; margin-right: auto;"><img border="0" height="233" src="https://derpops.bike/wp-content/uploads/2012/05/oic-300x219.png" width="320" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">These conversations kill</td>
+</tr>
+</tbody>
+</table>
+<p>This is an extremely useful feature for me.&nbsp; Not only will it open up a new tab (which is awesome by the way), it'll populate that tab with a threaded view of all the mails related to that starred mail.&nbsp; All the mails.&nbsp; That includes my own replies.<br />
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/theconvers.png" style="margin-left: auto; margin-right: auto;"><img border="0" height="123" src="https://derpops.bike/wp-content/uploads/2012/05/theconvers-300x115.png" width="320" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">See you in Hell!</td>
+</tr>
+</tbody>
+</table>
+<p>In a multi-pronged thread with multiple participants, one can quickly lose context as to what's been replied to and what hasn't.&nbsp; Being able to see my own replies intermixed with the rest of the thread is pretty awesome.</p>
+<p>Now, if you're following along at home and have noticed that your "Open in Conversation" menu entry is greyed out, fear not!&nbsp; This feature depends on the "Global Search and Indexer" being enabled.<br />
+<table align="center" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-right: auto; text-align: center;">
+<tbody>
+<tr>
+<td style="text-align: center;"><a href="https://derpops.bike/wp-content/uploads/2012/05/glod.png" style="margin-left: auto; margin-right: auto;"><img border="0" height="320" src="https://derpops.bike/wp-content/uploads/2012/05/glod-300x300.png" width="320" /></a></td>
+</tr>
+<tr>
+<td style="text-align: center;">My name is Gloda</td>
+</tr>
+</tbody>
+</table>
+<p>If this isn't enabled, enabling it will spike your CPU for a bit as TB gathers information about all your mail.&nbsp; After that initial hit, I haven't noticed any performance overhead.</p>
+<p>--</p>
+<p>So that's how I stay on top of my email.&nbsp; It keeps me efficient, and lessens the likelihood of something falling through the cracks.&nbsp; A friend who's been a TB user for years wasn't aware of this feature and after describing it to him I realized other people might not be aware, so here ya go!</p>
+<p>Happy Emailing!</p>

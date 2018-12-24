@@ -1,0 +1,287 @@
+---
+layout: post
+status: publish
+published: true
+title: Kicking the tires of the Brigade service for Kubernetes
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 129
+wordpress_url: https://derpops.bike/?p=129
+date: '2017-11-14 21:57:24 +0000'
+date_gmt: '2017-11-14 21:57:24 +0000'
+categories:
+- github
+- python
+- computers
+- Docker
+- Kubernetes
+tags:
+- k8s
+- kubernetes
+- python
+- GitHub
+comments: []
+---
+<p>Recently, the Azure team <a href="https://open.microsoft.com/2017/10/23/announcing-brigade-event-driven-scripting-kubernetes/">announced</a>&nbsp;a new open source service called Brigade. The point of this service is to provide a neat way to execute pipelines of job executions via containers within a Kubernetes&nbsp;system, in response to events from the likes of GitHub or Dockerhub. I thought I'd take it for a test drive on the <a href="https://www.ibm.com/cloud/container-service">IBM Cloud Containers Service</a>,&nbsp;which exposes Kubernetes.</p>
+<h2>Background Knowledge</h2>
+<p>This post assumes some level of understanding of <a href="https://kubernetes.io/">Kubernetes</a>, <a href="https://www.docker.com/">(Docker) Containers</a>, and GitHub <a href="https://help.github.com/articles/about-pull-requests/">pull requests</a>.</p>
+<h2>What's the point?</h2>
+<p>Why would somebody want a Brigade like service? There are many reasons, but for me the reason that stood out was an easy way to set up a Continuous Integration and Continuous Delivery pipeline. That is, I wanted proposed changes to code I have hosted on GitHub to be tested before I merge it, and once merged, to be deployed somewhere. There are many options available to provide CI/CD services in the (growing)&nbsp;<a href="https://github.com/marketplace/category/continuous-integration">GitHub Marketplace</a>, however being in control of your own service and infrastructure, as well as being able to potentially tie into other event streams, is an appealing thought. Full disclosure, I was recently working on a <a href="https://github.com/BonnyCI">project</a> to add another option to the GitHub Marketplace for CI/CD, based on the open source <a href="https://docs.openstack.org/infra/zuul/feature/zuulv3/index.html">Zuul</a> project from OpenStack.</p>
+<h2>Getting Started</h2>
+<p>The installation process for Brigade was very easy, which is to be expected from the same team that created <a href="https://helm.sh">Helm</a>. It should be no surprise that the installation is managed via Helm. Pretty much any Kubernetes system will suffice, and for my experimentation I made use of the IBM Containers Service. I could have just as easily used <a href="https://kubernetes.io/docs/getting-started-guides/minikube/">Minikube</a>, however one aspect of the Brigade service is ingesting <a href="https://developer.github.com/webhooks/">GitHub webhook</a> events. Having a Kubernetes cluster available that supported LoadBalancer services makes things a bit easier.</p>
+<h3>Installing the Brigade Service</h3>
+<p>The <a href="https://github.com/Azure/brigade/blob/master/docs/topics/install.md">installation documentation</a> from Brigade is very straight forward. All I had to do was make sure I had Helm installed on my laptop and my cluster, and that my <code>kubectl</code>&nbsp;client was properly configured to reach my cluster. There are two Helm charts to deal with. One chart defines a project to interact with, such as a GitHub repository. This chart is expected to be used multiple times, once for each repository to be interacted with. As such, there is an example set of values that need to be copied and defined specifically for the repository. In my case, I populated the `myvalues.js` file with details for a GitHub repository I specifically created for this experiment, `j2sol/demobrigade`. I defined a secret phrase that will be used to validate incoming events as having come from GitHub, and supplied a GitHub<a href="https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/"> personal access token</a> so that the Brigade install can act on my behalf when interfacing with the GitHub API. I left the rest of the values alone, and installed the chart:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">> helm install --name demobrigade-project ./chart/brigade-project -f myvalues.yaml
+NAME:   demobrigade-project
+LAST DEPLOYED: Mon Nov 13 10:13:36 2017
+NAMESPACE: default
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/Secret
+NAME                                                            TYPE    DATA  AGE
+brigade-463662f2bc06a89c2464d52d1b248602a1085ed2ccf2953df6a8fa  Opaque  6     0s
+
+
+NOTES:
+Your new Brigade project has been created.
+
+This is a brigade project for github.com/j2sol/demobrigade
+
+It will clone the public repo
+
+To check it's state, run:
+
+  helm status demobrigade-project</pre>
+<p>The other Helm chart provided in the Brigade project repository is the chart for the Brigade services themselves. This is expected to be installed only once. (They <a href="https://github.com/Azure/brigade/blob/master/docs/topics/security.md#securing-brigade">advocate</a> one Brigade install per tenant, where a tenant is one or more people responsible for one or more associated repositories. I'd take that a bit further and advocate for independent Kubernetes clusters per Tenant.) For my installation, I needed to tweak one feature, which is the <code>rbac</code>&nbsp;feature. IBM Cloud Container Service's Kubernetes supports Role Base Access Control, and thus my Brigade install needed to account for that. I did not need to edit any files to account for this, I just used an extra option during the helm install:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">> helm install --name brigade ./chart/brigade --set rbac.enabled=true
+NAME:   brigade
+LAST DEPLOYED: Mon Nov 13 10:14:09 2017
+NAMESPACE: default
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1beta1/RoleBinding
+NAME                  AGE
+brigade-brigade-api   2s
+brigade-brigade-ctrl  2s
+brigade-brigade-gw    2s
+brigade-brigade-wrk   2s
+
+==> v1/Service
+NAME                 TYPE          CLUSTER-IP      EXTERNAL-IP     PORT(S)         AGE
+brigade-brigade-api  ClusterIP     172.21.13.101   <none>          7745/TCP        2s
+brigade-brigade-gw   LoadBalancer  172.21.219.206  169.48.217.138  7744:32586/TCP  2s
+
+==> v1beta1/Deployment
+NAME                  DESIRED  CURRENT  UP-TO-DATE  AVAILABLE  AGE
+brigade-brigade-api   1        1        1           0          2s
+brigade-brigade-ctrl  1        1        1           0          2s
+brigade-brigade-gw    1        1        1           0          2s
+
+==> v1/Pod(related)
+NAME                                   READY  STATUS             RESTARTS  AGE
+brigade-brigade-api-57d56ff7f8-rppkh   0/1    ContainerCreating  0         2s
+brigade-brigade-ctrl-69ff6bd48f-h49mc  0/1    ContainerCreating  0         2s
+brigade-brigade-gw-5bc49bd866-jgd79    0/1    ContainerCreating  0         2s
+
+==> v1/ServiceAccount
+NAME                  SECRETS  AGE
+brigade-brigade-api   1        2s
+brigade-brigade-ctrl  1        2s
+brigade-brigade-gw    1        2s
+brigade-worker        1        2s
+
+==> v1beta1/Role
+NAME                  AGE
+brigade-brigade-api   2s
+brigade-brigade-ctrl  2s
+brigade-brigade-gw    2s
+brigade-brigade-wrk   2s
+
+
+NOTES:
+Brigade is now installed!
+
+To find out about your newly configured system, run:
+
+  $ helm status brigade</pre>
+<p>At this point, all the Brigade pods had been created and the services had also been created. For the next step I needed information about the <a href="https://github.com/Azure/brigade/blob/master/docs/topics/design.md#terminology">Brigade Gateway</a> service, easily obtainable from the above output, or by using <code>kubectl</code>:</p>
+<pre class="nums:false nums-toggle:false lang:sh mark:4 decode:true">> kubectl get services
+NAME                  CLUSTER-IP       EXTERNAL-IP      PORT(S)          AGE
+brigade-brigade-api   172.21.13.101    <none>           7745/TCP         1h
+brigade-brigade-gw    172.21.219.206   169.48.217.138   7744:32586/TCP   1h
+kubernetes            172.21.0.1       <none>           443/TCP          2d</pre>
+<p>The information we need is the <code>EXTERNAL-IP</code>&nbsp;and the external port, which in this case is `169.48.217.138&nbsp;32586`. With this information I can moved on to the GitHub repository setup.</p>
+<h3>Configuring GitHub</h3>
+<p>My running Brigade service is rather useless without events to act upon. The events I wanted to react to come from GitHub, in the form of webhooks. As certain things happen to a repository on GitHub, it can send data about those events to a set URL. Setting this up requires administrative rights to the repository within GitHub. To set this up, I followed the <a href="https://github.com/Azure/brigade/blob/master/docs/topics/github.md#configuring">provided instructions</a>, replacing the <code>Payload URL</code>&nbsp;with data discovered in the above section, and the <code>Secret</code>&nbsp;with the string I added to <code>myvalues.yaml</code>&nbsp;earlier. Since my demo repository is public, I did not go through the steps to set up a private repository.</p>
+<p>Upon completing the webhook configuration, GitHub will send an event to the webhook, a <code>ping</code>&nbsp;event. This is visible in the <code>Recent Deliveries</code>&nbsp;section of the webhook configuration page. It should have a little green checkmark next to the UUID of the delivery. This lets me know that my GitHub project is able to communicate with my Brigade service as expected.</p>
+<h3>Create a brigade.js file</h3>
+<p>With my Brigade install reacting to GitHub events, it's time to direct it to&nbsp;<strong>do</strong> something when those events occur. The Brigade architecture relies on a special file within the git repository in question to inform the system what to do. This file is expected to be JavaScript. To start with, a simple statement to log a can be used:</p>
+<pre class="lang:js decode:true">console.log("hello from Brigade")</pre>
+<p>I created this file and pushed it to a <a href="https://github.com/j2sol/demobrigade/blob/simple-brigade/brigade.js">branch</a>. Because I pushed this branch to the repository that is generating webhooks, Brigade got events for the branch creation and push of a commit to the branch. I was able to see this by checking the logs of the gateway pod's container:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true ">> kubectl get pods
+NAME                                    READY     STATUS    RESTARTS   AGE
+brigade-brigade-api-57d56ff7f8-rppkh    1/1       Running   0          4h
+brigade-brigade-ctrl-69ff6bd48f-h49mc   1/1       Running   0          4h
+brigade-brigade-gw-5bc49bd866-jgd79     1/1       Running   0          4h
+
+> kubectl logs brigade-brigade-gw-5bc49bd866-jgd79
+<skipping>
+[GIN] 2017/11/13 - 21:55:45 | 400 |       77.33&micro;s |  10.184.120.244 |  POST     /events/github
+Expected event push, got create
+[GIN] 2017/11/13 - 21:58:43 | 400 |     451.036&micro;s |  10.184.120.244 |  POST     /events/github
+<skipping></pre>
+<p>I can also look at the logs of the Brigade controller to get some more information:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true ">> kubectl logs brigade-brigade-ctrl-69ff6bd48f-h49mc
+<skipping>
+handler.go:16: EventHandler: type=push provider=github commit=c967a7e629167d7672f31b2061e12add0ff6cc9f
+handler.go:43: Started brigade-worker-01byvp8jqfn9vggv0exbe24wbx-c967a7e6 for "push" [c967a7e629167d7672f31b2061e12add0ff6cc9f] at -62135596800</pre>
+<p>If I follow the clues, I can get the logs from the worker pod that was started:</p>
+<pre class="ranges:false nums:false lang:sh mark:6 decode:true">> kubectl logs brigade-worker-01byvp8jqfn9vggv0exbe24wbx-c967a7e6
+yarn run v1.3.2
+$ node prestart.js
+prestart: src/brigade.js written
+$ node --no-deprecation ./dist/src/index.js
+hello from Brigade
+Creating PVC named brigade-worker-01byvp8jqfn9vggv0exbe24wbx-c967a7e6
+after: default event fired
+beforeExit(2): destroying storage
+Destroying PVC named brigade-worker-01byvp8jqfn9vggv0exbe24wbx-c967a7e6
+Done in 0.87s.</pre>
+<p>With this output I can see the string I asked to be logged to the console, <code>hello from Brigade</code>. All the basics are set up and functioning as expected!</p>
+<h2>Beyond the basics</h2>
+<p>Simply logging words to the console of a container isn't very useful. One of the basic capabilities of Brigade is to launch containers to do actions upon certain events. For instance, I'd like to validate that my demoapp code passes <a href="https://pycodestyle.readthedocs.io/en/latest/">pycodestyle</a>. To achieve this, I can follow the <a href="https://github.com/Azure/brigade/blob/master/docs/topics/scripting.md">scripting guide</a> in order to update my <code>brigade.js</code>&nbsp;file to run <code>pycodestyle</code>&nbsp;within a container using the <code>python:alpine</code>&nbsp;image on <code>pull_request</code>&nbsp;events. I've created such a script and opened a <a href="https://github.com/j2sol/demobrigade/pull/11/files">pull request</a>. The content of <code>brigade.js</code>&nbsp;is:</p>
+<pre class="lang:js decode:true ">const { events, Job } = require("brigadier")
+
+events.on("pull_request", () => {
+    var job = new Job("pycodestyle", "python:alpine")
+    job.tasks = [
+      "pip install pycodestyle",
+      "cd /src",
+      "pycodestyle demoapp"
+    ]
+    job.run()
+})</pre>
+<p>Don't worry if you don't know JavaScript, I don't either. I'm just using details from the scripting guide to create my file content. I'm making use of the <code>/src/</code>&nbsp;directory, as that's where Brigade has made the code from my repository available. The version of code that is checked out is the tip of the pull request. Once again, I can log the controller pod to discover the worker pod that was created in reaction to the pull request event:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true ">> kubectl logs brigade-brigade-ctrl-69ff6bd48f-h49mc
+<skipping>
+handler.go:16: EventHandler: type=pull_request provider=github commit=4023f592ff7a4afb24d667c720a4b21b4c78b6a4
+handler.go:43: Started brigade-worker-01byvsvswfc6j0g9bmebn29963-4023f592 for "pull_request" [4023f592ff7a4afb24d667c720a4b21b4c78b6a4] at -62135596800</pre>
+<p>The logs for the worker pod show something interesting:</p>
+<pre class="nums:false nums-toggle:false lang:sh mark:18,19 decode:true ">> kubectl logs brigade-worker-01byvsvswfc6j0g9bmebn29963-4023f592
+yarn run v1.3.2
+$ node prestart.js
+prestart: src/brigade.js written
+$ node --no-deprecation ./dist/src/index.js
+Creating PVC named brigade-worker-01byvsvswfc6j0g9bmebn29963-4023f592
+looking up default/github-com-j2sol-demobrigade-pycodestyle
+Creating secret pycodestyle-1510614103251-4023f592
+Creating Job Cache PVC github-com-j2sol-demobrigade-pycodestyle
+undefined
+Creating pod pycodestyle-1510614103251-4023f592
+Timeout set at 900000
+default/pycodestyle-1510614103251-4023f592 phase Pending
+default/pycodestyle-1510614103251-4023f592 phase Pending
+default/pycodestyle-1510614103251-4023f592 phase Pending
+default/pycodestyle-1510614103251-4023f592 phase Pending
+default/pycodestyle-1510614103251-4023f592 phase Running
+default/pycodestyle-1510614103251-4023f592 phase Failed
+FATAL: job pycodestyle(pycodestyle-1510614103251-4023f592): Pod pycodestyle-1510614103251-4023f592 failed to run to completion (rejection)
+error handler is cleaning up
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.</pre>
+<p>It appears that the pod created for my job has failed. I'll look at the logs of the failed pod:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true ">> kubectl logs pycodestyle-1510614103251-4023f592
+Collecting pycodestyle
+  Downloading pycodestyle-2.3.1-py2.py3-none-any.whl (45kB)
+Installing collected packages: pycodestyle
+Successfully installed pycodestyle-2.3.1
+demoapp/__init__.py:4:1: E302 expected 2 blank lines, found 1
+demoapp/__init__.py:9:17: E225 missing whitespace around operator
+demoapp/__init__.py:12:1: E302 expected 2 blank lines, found 1
+demoapp/__init__.py:17:1: E305 expected 2 blank lines after class or function definition, found 1</pre>
+<p>Looks like my code does not currently pass <code>pycodestyle</code>! Normally I'd fix those as part of the pull request to add the testing, but I want to leave this pull request open for the sake of the blog. I'll open a <a href="https://github.com/j2sol/demobrigade/pull/12">new one</a> that has the fixed contents on a new branch. This time the worker pod logs show a successful run:</p>
+<pre class="nums:false nums-toggle:false lang:sh mark:15 decode:true ">> kubectl logs brigade-worker-01byxzk5nm3vfxvw763a1743xc-c2347081
+yarn run v1.3.2
+$ node prestart.js
+prestart: src/brigade.js written
+$ node --no-deprecation ./dist/src/index.js
+Creating PVC named brigade-worker-01byxzk5nm3vfxvw763a1743xc-c2347081
+looking up default/github-com-j2sol-demobrigade-pycodestyle
+Creating secret pycodestyle-1510687220035-c2347081
+Creating Job Cache PVC github-com-j2sol-demobrigade-pycodestyle
+undefined
+Creating pod pycodestyle-1510687220035-c2347081
+Timeout set at 900000
+default/pycodestyle-1510687220035-c2347081 phase Pending
+default/pycodestyle-1510687220035-c2347081 phase Running
+default/pycodestyle-1510687220035-c2347081 phase Succeeded
+after: default event fired
+beforeExit(2): destroying storage
+Destroying PVC named brigade-worker-01byxzk5nm3vfxvw763a1743xc-c2347081
+Done in 6.98s.</pre>
+<h2>Pipelines</h2>
+<p>Reacting to events to run tests is a pretty common thing. There's nothing special about it. What really makes Brigade interesting is the ability to run multiple jobs in multiple containers, and to create <a href="https://github.com/Azure/brigade/blob/master/docs/topics/scripting.md#groups">groups</a> of those jobs which can either run in parallel or serially. There is also the ability to use <a href="https://github.com/Azure/brigade/blob/master/docs/topics/scripting.md#storing-data-with-caches-and-shared-space">content</a> and <a href="https://github.com/Azure/brigade/blob/master/docs/topics/scripting.md#jobs-and-return-values">output</a> generated as part of a job in a later job.</p>
+<p>For my simple demo repository, I want to set up a functional test of my application, and alter the <code>brigade.js</code>&nbsp;file to run the functional test and the style test in parallel via two containers. Another <a href="https://github.com/j2sol/demobrigade/pull/14">pull request</a>&nbsp;shows this change. The content of the <code>brigade.js</code>&nbsp;file is now:</p>
+<pre class="lang:js decode:true ">const { events, Job, Group } = require("brigadier")
+
+events.on("pull_request", () => {
+    var style = new Job("pycodestyle", "python:alpine")
+    style.tasks = [
+      "pip install pycodestyle",
+      "cd /src",
+      "pycodestyle demoapp"
+    ]
+
+    var functional = new Job("functional", "python:alpine")
+    functional.tasks = [
+      "apk update &amp;&amp; apk add curl",
+      "pip install /src/",
+      "/usr/local/bin/demoapp &amp;",
+      "sleep 2",
+      "curl http://127.0.0.1:8000"
+    ]
+
+    Group.runAll([style, functional])
+})</pre>
+<p>Viewing the logs from the worker pod that was created for the <code>pull_request</code>&nbsp;event shows the new job names and the pods used. The output also shows how they're running in parallel:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true ">> kubectl logs brigade-worker-01byy57yadgr1khq86q5z6k07g-96842797
+yarn run v1.3.2
+$ node prestart.js
+prestart: src/brigade.js written
+$ node --no-deprecation ./dist/src/index.js
+Creating PVC named brigade-worker-01byy57yadgr1khq86q5z6k07g-96842797
+looking up default/github-com-j2sol-demobrigade-pycodestyle
+looking up default/github-com-j2sol-demobrigade-functional
+Creating secret pycodestyle-1510693143841-96842797
+Creating secret functional-1510693143844-96842797
+Creating Job Cache PVC github-com-j2sol-demobrigade-pycodestyle
+undefined
+undefined
+Creating Job Cache PVC github-com-j2sol-demobrigade-functional
+Creating pod pycodestyle-1510693143841-96842797
+Creating pod functional-1510693143844-96842797
+Timeout set at 900000
+Timeout set at 900000
+default/pycodestyle-1510693143841-96842797 phase Pending
+default/functional-1510693143844-96842797 phase Pending
+default/functional-1510693143844-96842797 phase Running
+default/pycodestyle-1510693143841-96842797 phase Running
+default/pycodestyle-1510693143841-96842797 phase Succeeded
+default/functional-1510693143844-96842797 phase Running
+default/functional-1510693143844-96842797 phase Running
+default/functional-1510693143844-96842797 phase Running
+default/functional-1510693143844-96842797 phase Succeeded
+after: default event fired
+beforeExit(2): destroying storage
+Destroying PVC named brigade-worker-01byy57yadgr1khq86q5z6k07g-96842797
+Done in 13.03s.</pre>
+<p>I can imagine creating complex sets of jobs within groups to run some tests in parallel, some in serial, more in parallel, while sharing content and output between the sets.</p>
+<h2>Conclusion</h2>
+<p>Brigade is an interesting project. It has the capability to create complex workflows in reaction to specific events, and the set up is pretty easy. It may be a better solution than creating your own webhook handler and launching native <a href="https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/">Kubernetes Jobs</a>. As a project, I think it's in the early stages of development. I ran <a href="https://github.com/Azure/brigade/issues?utf8=✓&amp;q=is%3Aissue%20author%3Aj2sol%20">into a few issues</a> as I was playing around. The project developers have been quite responsive and eager for input. I wouldn't recommend taking Brigade into production just yet, but I would encourage exploring the capability and thinking about potential use cases. I'm sure the developers would love more input on how people would like to use Brigade. The project is open source, so if you want to get your hands dirty I'm sure they'd welcome the help too!</p>

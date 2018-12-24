@@ -1,0 +1,71 @@
+---
+layout: post
+status: publish
+published: true
+title: Python magic and remote APIs
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 12
+wordpress_url: https://derpops.bike/?p=12
+date: '2013-02-13 00:57:00 +0000'
+date_gmt: '2013-02-13 00:57:00 +0000'
+categories:
+- python
+tags: []
+comments:
+- id: 20
+  author: ralph
+  author_email: noreply@blogger.com
+  author_url: http://ralph.id.fedoraproject.org/
+  date: '2013-02-13 01:07:15 +0000'
+  date_gmt: '2013-02-13 01:07:15 +0000'
+  content: Nice!  I wouldn't have thought to override __dir__.. good stuff.
+- id: 21
+  author: jlk
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/04983692253657503610
+  date: '2013-02-13 01:11:35 +0000'
+  date_gmt: '2013-02-13 01:11:35 +0000'
+  content: A friend clued me in when I asked about ipython tab completion.  In the
+    real code I have to make some concessions about whether or not a token exists
+    (we cache it to disk for the client) so a dir() or tab in ipython may end up prompting
+    the user for credentials, but it still works well enough once that's out of the
+    way.
+---
+<p>I'm a pretty big fan of Python as a programming language. It allows me to program by discovery, that is poke and prod at things until the work. Not having to compile an entire program every time I change something is pretty fantastic, as is the ability to insert a debug statement and be able to break a program at that point, then run arbitrary python code within that context. Pretty indispensable to how I write software.</p>
+<p>Another thing I like about Python, which some may not, is the ability to do magic things. Not quite so magic as <a href="http://xkcd.com/353/" target="_blank">xkcd</a> would like us to believe, but fun stuff indeed.</p>
+<p>Recently one of the services at work grew a json API to bang against, and for fun I thought I'd whip up some python to play with it. My team had a few utility scripts that would bang on the old xmlrpc interface to get some data, I wanted to see how much faster it was with json.</p>
+<p>First, if you have to do anything web stuff, you really should be using the <a href="http://docs.python-requests.org/en/latest/" target="_blank">Requests</a> module. It is so, so much better than using urllib(2) directly.</p>
+<p>The API I wanted to program against had an Auth end point that would return to you a token string. This string could be included with later API calls to provide authentication. Requests lets you create a session object that can have attributes that carry on to all web calls, such as a custom auth header with a token.</p>
+<pre>resp = requests.get('https://URL/api/auth/USERNAME?password=DATA')<br />resp.json()<br />  u'LONGSTRING'<br />token = resp.json()<br />session = requests.Session()<br />session.headers.update({'X-Auth': token})<br /></pre>
+<p>Now the session object can be used just like requests itself, and it'll include the new header we've added. While this was neat at first, I quickly realized that I wanted to make this session object an attribute of a more generic object for working with the API. Each time you use session or requests you have to fill in a url and that's tedious, so I made a <span style="font-family: inherit;">python class to handle that for me. One bit of magic I used here was a python property.</span></p>
+<p><span style="font-family: inherit;">A python property is a way populate a class attribute on the fly / as needed without the code using your object needing to know that it's happening behind the scenes. It's a getter/setter without having to get and set, and it caches the value for future getting.&nbsp; </span>My class sets some data during the init process, and creates a property for the session attribute, which can then be used in later functions, like a login or query function.</p>
+<pre>class CServ(object):<br />    """A cservice object that we will interact with."""<br /><br />    def __init__(self):<br />        self.API = 'URL'<br />        self.SessURL = self.API + 'session/'<br />        self.QAPI = self.API + 'query/'<br />        self._session = None<br />    <br />    def _login(self):<br />        username = myuser<br />        password = mypass</pre>
+<pre>       &nbsp;data = {'password': password}<br />        r = requests.get('%sauth/%s' % (self.API, username), params=data)<br />        return r.json()<br />        <br />    @property<br />    def session(self):<br />        if not self._session:<br />            self._auth()<br />        return self._session<br /><br />    def _auth(self):<br />        token = self._login()<br />        # Build up a session object with the token<br />        s = requests.Session()<br />        s.headers.update({'X-Auth': token})<br />        self._session = s<br /><br />    def query(self, classname, load_arg, attributes=None):<br />        """Wrangle a query into the json interface.<br /><br />        classname -- The name of the cserv api class to query against<br />        load_arg -- The argument to query for (can be a list)<br />        attributes -- an optional list of what to return<br /><br />        returns jsonified results<br />        """<br /><br />        # See if we have a list of load args to go through<br />        if type(load_arg) == list:<br />            # Build up a dict of the bits we need to pass in<br />            bits = []<br />            for arg in load_arg:<br />                qdict = {'class': classname, 'load_arg': arg}<br />                if attributes:<br />                    qdict['attributes'] = attributes<br />                bits.append(qdict)<br />        else:<br />            bits = {'class': classname, 'load_arg': load_arg}<br />            if attributes:<br />                bits['attributes'] = attributes<br /><br />        data = self.session.post(self.QAPI, json.dumps(bits))<br />        return data.json()<br /></pre>
+<p>With this structure we can do things like:</p>
+<pre>cserv = CServ()<br />cserv.query('Computer.Computer', 432807, attributes=['name'])<br />  [{u'count': 1, u'load_arg': 432807, u'limit': 1, u'result':&nbsp;</pre>
+<pre>  [{u'name': u'silly.hostname.here.com'}], u'offset': 0,</pre>
+<pre>  u'class': u'Computer.Computer'}]<br /></pre>
+<p>We get back a json blob that has what the API returned to us. What happened was that the query function built up the information for the requests bit, which was passed into self.session.post(). Since this was the first time trying to access self.session we went through the @property tagged session() function. That function determined that self._session was not populated yet and called _auth(). _auth() in turn did the login dance to generate the token, built up a requests.Session object, tweaked the header and stuffed it into self._session. session() then returned that to the caller thus delivering the actual session object. Magic!&nbsp; The next time session is accessed it will quickly return the value of self._session. Properties are awesome and useful.</p>
+<p>A CServ() object is okay, but not useful on its own. If I wanted to get a bit of data about a computer and use that data numerous times I'd either have to store a copy of the data in a local variable, or do queries each time I wanted the data. Neither are efficient. What I really want is to be able to create a Computer object, and from that object access attributes directly, like say Computer.name. Here is where some more magic comes in. We already know we can create properties to back attributes. We could go find out what all possible things we could look up about a computer in our CServ service, then write out properties for each of those. That... doesn't sound fun. Particularly if you think about this CServ having Computer items, Switch items, Account items, etc... That would be a lot of typing!</p>
+<p>What if instead there was a way to do dynamic properties?&nbsp; What if when we tried to access Computer.primary_ip the code would just know to do a query to look up the 'primary_ip' attribute of a Computer.Computer cserv API class?&nbsp; Well we're in luck, because there is a way!</p>
+<p>First we're going to create a subclass of CServ, CServOBJ. This class will be a base class for any number of objects, like Computers, Accounts, etc.. We can save a lot of code duplication by putting the shared bits in CServOBJ.</p>
+<pre>class CServOBJ(CServ):<br />    """A base CServ object class to build from"""<br /></pre>
+<p>Right now we don't need to overload the __init__ method, so we can dive right into the magic. In python, when you attempt to access an object's attribute, behind the scenes an object's __getattr__(attribute) method is called.  Normally you don't see it because it's all built in, but we can override it to make attribute access do something different.  In our case, we want to do an API look up to get the value if we don't already have it, so we'll overload the function:</p>
+<pre>    def __getattr__(self, name):<br />        try:<br />            return self.__dict__[name]<br />        except KeyError:<br />            self._setAttrib(name)<br />            return self.__dict__[name]<br /><br />    def _setAttrib(self, name):<br />        resp = self.session.get('%sattribute/%s/%s/%s' %<br />                                (self.API, self._qclass, self._qval, name))<br />        resp.raise_for_status()<br />        setattr(self, name, resp.json())<br /></pre>
+<p>Objects in python also have a built in __dict__ that keeps track of all the attributes. Our simple little bit of code will try to return the value for the name of the attribute the function gets.  If that attribute doesn't exist in the built in dict, a keyerror would happen.  We catch that error and call our _setAttrib() function.  This function is where the look up is built up using some other class attributes we'll get to later.  A session call is made and the value is fed into the setattr python built-in.  All this work happens behind the scenes to the bit of code just trying to access the attribute, and the lookup only happens once.&nbsp; That's all we really need for now in the base class, lets create a Computer class.</p>
+<pre>class Computer(CServOBJ):<br />    """A class to represent the Computer.Computer CServ API class"""<br /><br />    _qclass = 'Computer.Computer'<br />    def __init__(self, number):<br />        self.number = number<br />        self._qval = self.number</pre>
+<pre>        super(Computer, self).__init__() </pre>
+<p>That's all there is to it.&nbsp; _qclass is defined as a class attribute, it does not change per-object.&nbsp; It is the class name passed into the remote API.&nbsp; The object creation takes a number, which is the identifier for computers in our system.&nbsp; It assigns that to the number attribute so that if we reference computer.number we don't make another API call.&nbsp; _qval is the place holder that will be common across all the objects for what do use as a look up key.&nbsp; The parent class's init is called (which skips all the way up to CServ) to complete the object creation.</p>
+<p>With this setup, we can program against it very easily to access and cache data:</p>
+<pre>comp = Computer(432888)<br />print(comp.number)<br />  432888<br />print(comp.primary_ip)<br />  10.14.232.158<br /></pre>
+<p>MAGIC!</p>
+<p>Now if you are like me, you spend a lot of time in things like ipython or bpython to interactively program stuff and play with objects and whatnot.&nbsp; These environments provide tab completion, help functions, etc...&nbsp; With our current code though, we couldn't tab complete the available attributes.&nbsp; Only the name attribute and the functions we've created would show up.&nbsp; To fix that, we need to overload the built in __dir__ function.&nbsp; This function is used when getting a listing of what is available to an object, dir(object).&nbsp; A useful exploratory tool.&nbsp; ipython/bpython use this method to see what tab completion options to provide you.&nbsp; Luckily our internal service provides an API call to get a listing of possible attributes, so we can hook that into __dir__.&nbsp; But of course we only want to do this API call once (per object) so we will want to make it a property.&nbsp; Since there is nothing API class specific we can put the code into the CServOBJ class:</p>
+<pre>    def __init__(self):<br />        self._attributes = None<br />        super(CServOBJ, self).__init__()<br /><br />    @property<br />    def attribs(self):<br />        if not self._attribs:<br />            self._attribs = []<br />            resp = self.session.get('%sattributes/%s' %<br />                                    (self.API, self._qclass))<br />            for att in resp.json():<br />                self._attribs.append(att[0])<br />        return self._attribs<br /><br />    def __dir__(self):<br />        return sorted(dir(type(self)) + list(self.__dict__) + self.attribs)<br /></pre>
+<p>Since we are creating a property at this level we will grow an __init__ function to prep for that.  Then we define the attribs() function.  A short-cut is taken here, instead of calling out to some other function to load the attributes the load is done directly.&nbsp; Any time a Computer object gets a dir() call our overloaded function will return a sorted list that is the combination of the built in functions/attributes, anything that has been added to the specific object, and the available API attributes.&nbsp; Tab-completion achieved!</p>
+<p>This has been a quick look into some of the magic you can do with Python.&nbsp; It's not quite antigravity, but it is useful, and food for thought for anybody that's programming against remote APIs.&nbsp; Objects are good, objects with dynamic attributes are better, and tab completion is icing on the cake.&nbsp; Enjoy!</p>

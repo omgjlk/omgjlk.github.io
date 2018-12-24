@@ -1,0 +1,255 @@
+---
+layout: post
+status: publish
+published: true
+title: Interactive debugging python code in (mini) Kubernetes
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 119
+wordpress_url: https://derpops.bike/?p=119
+date: '2017-10-26 23:20:10 +0000'
+date_gmt: '2017-10-26 23:20:10 +0000'
+categories:
+- python
+- computers
+- Kubernetes
+tags:
+- k8s
+- kubernetes
+- minikube
+- python
+- debugging
+comments:
+- id: 165
+  author: Suraj Narwade ?? (@red_suraj)
+  author_email: red_suraj@twitter.example.com
+  author_url: http://twitter.com/red_suraj
+  date: '2017-11-02 10:04:03 +0000'
+  date_gmt: '2017-11-02 10:04:03 +0000'
+  content: Hey Nice post, Why don't you give a try to Kompose (http://kompose.io)
+- id: 166
+  author: Sean Bryant
+  author_email: miaminicky@averdov.com
+  author_url: https://www.rookout.com
+  date: '2018-04-27 08:50:13 +0000'
+  date_gmt: '2018-04-27 08:50:13 +0000'
+  content: Thank you so much for sharing. Can you link to the the buggy bubble sort
+    code, so that we can follow along at home?
+---
+<p>Lately I've been playing around with <a href="https://kubernetes.io">Kubernetes</a>. If you don't know what Kubernetes (k8s) is, then the rest of this post is going to be very confusing to you.</p>
+<h4>Needed concepts</h4>
+<p>I'm going to talk about a few things. Here are some links to places to get up to speed should any of this not make any sense:</p>
+<ul>
+<li><a href="https://kubernetes.io">Kubernetes</a></li>
+<li><a href="https://www.docker.com">Docker</a></li>
+<li><a href="https://docs.docker.com/compose/">Docker Compose</a></li>
+<li><a href="https://docs.python.org/3.7/installing/index.html">Python pip</a></li>
+<li><a href="https://kubernetes.io/docs/getting-started-guides/minikube/">Minikube</a></li>
+<li><a href="https://kubernetes.io/docs/user-guide/kubectl-overview/">kubectl</a></li>
+<li><a href="https://docs.python.org/3.7/library/pdb.html">Python Debugging</a></li>
+</ul>
+<h3>Background</h3>
+<p>I'm somewhat late to the k8s game, and I'm still trying to get my bearings. One task I set out to figure out is how I can replicate my development workflow I had built up with<a href="https://docs.docker.com/compose/"> Docker Compose</a>&nbsp;to launch containers of my application locally for testing. The&nbsp;<a href="https://docs.openstack.org/infra/zuul/feature/zuulv3/index.html">application</a>&nbsp;I've been developing on consists of a Zookeeper service and three Python services. I have the Python services&nbsp;broken out into three separate containers based on the same image, but with different launch commands. When testing things locally, I often want to introduce code that I haven't yet committed to a repository, and instead of building new images every time, I make use of a <a href="https://docs.docker.com/compose/compose-file/#volumes">volume mount</a> to bring my code into the container at runtime. This works well with Python thanks to a feature in pip, the tool for installing python packages. I can tell pip to perform an<a href="https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs"> editable install</a>. This type of install makes use of a symlink in the installation target path which links to the source directory of the install. In my <a href="https://github.com/j2sol/z8s/blob/master/Dockerfile-zuul-fedora#L13-L16">Dockerfile</a>&nbsp;I clone the source code to <code>/zuul</code>, and then perform the pip install from there. What this means is that after the install, I could&nbsp;simply alter the files in the original checkout in <code>/zuul</code>&nbsp;and restart the process and the changes will take effect. To expand on that further, this gives me the ability to <a href="https://github.com/j2sol/z8s/blob/master/devel.yaml#L5">attach a volume mount</a> from my laptop's zuul checkout directory (where I have edited files) to the <code>/zuul</code>&nbsp;path within the container at start time, so that I can make use of edited files without rebuilding the image.</p>
+<h3>On to Kubernetes!</h3>
+<p>My workflow&nbsp;worked great in docker-compose, but now I want to do this with k8s. To demonstrate how this works, I've created a simple Python web server in a demo app. I've put the <a href="https://github.com/j2sol/demoapp">source for this on GitHub</a> for convenience.</p>
+<p>First, I need to install and run <a href="https://kubernetes.io/docs/getting-started-guides/minikube/">minikube</a>, a tool to run a Kubernetes cluster locally on my laptop. Minikube will download some data and launch a virtual machine in which to run the k8s services, including its own Docker daemon.</p>
+<h5>Build&nbsp;Docker image</h5>
+<p>With minikube running, I next need to configure my Docker client to make use of the Docker Engine within minikube. A simple command `eval $(minikube docker-env)` will set up my client. Now I can build my Docker image so that it'll be available for use within k8s. I've cloned my repository into a <code>src/derpops/demoapp</code>&nbsp;directory relative to my homer. From there I just need a simple Docker build command to build my image. <strong>NOTE!</strong> I'm using a tag other than <code>latest</code>&nbsp;so that Kubernetes will not try to pull the latest version of my image. My image will only exist locally, so a pull would fail.</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ docker build -t demoapp:demo .
+Sending build context to Docker daemon  129.5kB
+Step 1 : FROM python:alpine
+ ---> 83da41380580
+Step 2 : RUN apk --no-cache add --update     git
+ ---> Using cache
+ ---> bf6e5c3fd23c
+Step 3 : RUN git clone https://github.com/j2sol/demoapp.git /demoapp
+ ---> Using cache
+ ---> eacba0083289
+Step 4 : RUN pip install -e /demoapp
+ ---> Using cache
+ ---> 3f881178557d
+Step 5 : RUN pip install rpdb
+ ---> Using cache
+ ---> 81845e2506d2
+Step 6 : RUN apk del git
+ ---> Using cache
+ ---> 19d2d2bb91d1
+Step 7 : CMD demoapp
+ ---> Using cache
+ ---> 9eddb5c0209a
+Successfully built 9eddb5c0209a</pre>
+<h5>Creating a Deployment</h5>
+<p>With the image in place, I can now create a k8s <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Deployment</a>. The Deployment lets me define a container to launch, with the image I built above, and a command to run within the container. I can do this with a simple <a href="https://kubernetes.io/docs/user-guide/kubectl-overview/">kubectl</a> command:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl create deployment demoapp --image demoapp:demo
+deployment "demoapp" created
+
+$ kubectl get pods
+NAME                       READY     STATUS    RESTARTS   AGE
+demoapp-3399253556-ngkv0   1/1       Running   0          1s
+
+</pre>
+<p>If my deployment is created successfully, a new pod will show up, which will be running my code.</p>
+<h5>Creating a Service</h5>
+<p>To see if my code is working properly, I need to be able to reach the web server. A k8s <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Service</a> is necessary to set up the networks appropriately. Just like with the Deployment, a simple kubectl command will suffice to create the service:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl create service nodeport demoapp --tcp=8000
+service "demoapp" created
+
+$ kubectl get services
+NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)          AGE
+demoapp      10.0.0.232   <nodes>       8000:32369/TCP   1m
+kubernetes   10.0.0.1     <none>        443/TCP          23h</pre>
+<p>This command created a service that will allow me to reach port 8000 of the container running the application. My <a href="https://github.com/j2sol/demoapp/blob/master/demoapp/__init__.py#L13">code specifically tells</a> the python library to use port 8000 and to listen on all addresses. This type of service is a <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">nodeport</a>, which makes this port reachable from every node. However, since this is minikube, I only have one node, and I can ask minikube to tell me what the IP address of the node is with the <code>service</code>&nbsp;command. I'll ask it to just display the URL, instead of opening the URL in my browser, and then use <code>curl</code>&nbsp;to access the URL:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ minikube service demoapp --url
+http://192.168.64.3:32369
+
+$ curl http://192.168.64.3:32369
+Hi there!%</pre>
+<h5>Injecting new code</h5>
+<p>My application works, but now I want to alter the code. To get new code into my container, I need to add a volume mount to my deployment.</p>
+<p>VolumeMounts are used to expose content into a container. A VolumeMount definition combines the name of a volume and a path to mount it within the container. The name matches a defined <a href="https://kubernetes.io/docs/concepts/storage/volumes/">Volume</a>, of which many types are supported. The type we're interested in, the&nbsp;<a href="https://kubernetes.io/docs/concepts/storage/volumes/#hostpath"><code>hostPath</code></a>&nbsp;type,&nbsp;exposes a file or a directory from the node (the machine a container is running on). The use of minikube <a href="https://kubernetes.io/docs/getting-started-guides/minikube/#mounted-host-folders">automatically exposes a folder</a> from the host machine minikube runs on into the VM where k8s is running, which is the node. In my case, the <code>/Users</code>&nbsp;directory on my laptop is exposed as <code>/Users</code>&nbsp;on the node, and thus I can make use of this in a <code>hostPath</code>&nbsp;volume.</p>
+<p>To add a volume to my Deployment, I'll need to create a <code>yaml</code>&nbsp;file describing my Deployment spec. I can do this quickly by repeating the earlier command but adding arguments to print out YAML:</p>
+<pre class="lang:yaml decode:true">$ kubectl create deployment demoapp --image demoapp:demo --dry-run -o yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: demoapp
+  name: demoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demoapp
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: demoapp
+    spec:
+      containers:
+      - image: demoapp:demo
+        name: demoapp
+        resources: {}
+status: {}</pre>
+<p>I saved this output to a new file, &nbsp;<code>demoapp-deployment.yaml</code>, where I can make adjustments as needed. I need to alter the <code>containers</code>&nbsp;spec for the <code>demoapp</code>&nbsp;container to define a <code>volumeMount</code>:</p>
+<pre class="nums:false nums-toggle:false lang:yaml mark:2-4 decode:true">        resources: {}
+        volumeMounts:
+          - name: demosource
+            mountPath: /demoapp/demoapp
+status: {}</pre>
+<p>This references a volume by the name of <code>demosource</code>&nbsp;which I also need to define in the <code>spec</code>&nbsp;as a new key:</p>
+<pre class="nums:false nums-toggle:false lang:yaml mark:2-5 decode:true">            mountPath: /demoapp/demoapp
+      volumes:
+        - name: demosource
+          hostPath:
+            path: /Users/jkeating/src/derpops/demoapp/demoapp
+status: {}</pre>
+<p>These additions will cause the directory <code>/Users/jkeating/src/derpops/demoapp/demoapp</code>&nbsp;to be mounted to the path <code>/demoapp/demoapp</code>&nbsp;within the container when it launches. This will overlay the version of code on my laptop on top of the code that already exists in the container.</p>
+<p>To get the new definition of my Deployment in use, I'll delete the existing Deployment and create a new one from the YAML file:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl delete deployment demoapp
+deployment "demoapp" deleted
+
+$ kubectl create -f demoapp-deployment.yaml
+deployment "demoapp" created
+
+$ kubectl get pods
+NAME                       READY     STATUS        RESTARTS   AGE
+demoapp-2344086337-x6697   1/1       Running       0          1s
+demoapp-3399253556-ngkv0   1/1       Terminating   0          30m</pre>
+<p>The existing pod is being terminated while a new pod is running. If all went well, I should still be able to use <code>curl</code>&nbsp;to reach the web server:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ curl http://192.168.64.3:32369
+Hi there!%</pre>
+<p>The output is the same as earlier, as I haven't changed any code. But what if I change the value of the variable <a href="https://github.com/j2sol/demoapp/blob/master/demoapp/__init__.py#L9">RESPONSE</a>&nbsp;to something new by editing the file <code>demoapp/__init__.py</code>&nbsp;on my laptop.</p>
+<pre class="nums:false nums-toggle:false lang:python mark:2 decode:true">        self.end_headers()
+        RESPONSE='''Edited code'''
+        self.wfile.write(bytes(RESPONSE, 'UTF-8'))</pre>
+<p>To get my new code in use, I can simply delete the Pod my Deployment created. A Deployment uses a ReplicaSet to control how many Pods are active. Deleting the pod will trigger the creation of a new one, which should pick up my new code. To determine which pod to delete, I'll&nbsp;use the <code>get pods</code>&nbsp;command via&nbsp;<code>kubectl</code>. This will list all the running pods. Then I'll use&nbsp;the <code>delete pod</code>&nbsp;command to delete the `demoapp` pod, and then make sure a new one is created:<code></code></p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl get pods
+NAME                       READY     STATUS    RESTARTS   AGE
+demoapp-2344086337-x6697   1/1       Running   0          11m
+
+$ kubectl delete pod demoapp-2344086337-x6697
+pod "demoapp-2344086337-x6697" deleted
+
+$ kubectl get pods
+NAME                       READY     STATUS        RESTARTS   AGE
+demoapp-2344086337-c6qth   1/1       Running       0          1s
+demoapp-2344086337-x6697   1/1       Terminating   0          11m</pre>
+<p>The new pod should have my new code, which I'll verify with <code>curl</code>&nbsp;once more:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ curl http://192.168.64.3:32369
+Edited code%</pre>
+<h5>Interactive debugging</h5>
+<p>Getting new code used in the container is fun, but what is even more useful is being able to interactively debug this new code. Python developers should be familiar with the use of <a href="https://docs.python.org/3.7/library/pdb.html">pdb</a>, the python debugger. This utility can be used to insert a break point into the source code in order to interactively debug the code at that point in the execution. Pdb is fantastic when you are able to execute the code directly, but requires being attached to the tty that started the python process. That's a difficult feat inside of a system like k8s. Thankfully there is a wrapper around pdb specifically for connecting to remote python processes, called <a href="https://tamentis.com/projects/rpdb/">rpdb</a>. When using rpdb, the wrapper will redirect stdout/stdin to a socket handler, which can be accessed over TCP. This will allow me to define a breakpoint in the code and then connect to the socket remotely in order to attach to the debugger to interact with the process. (One downside of rpdb is that it is not part of the standard library, and thus the library will need to be explicitly installed into the python environment. I've done this in my <a href="https://github.com/j2sol/demoapp/blob/master/Dockerfile#L8">Dockerfile</a>.)</p>
+<p>To debug my code, I first have to add the breakpoint to one of my source files. At the appropriate line, I need to insert <code>import rpdb; rpdb.set_trace("0.0.0.0")</code>. I specifically need to tell rpdb to listen on <code>0.0.0.0</code>&nbsp;instead of the default <code>127.0.0.0</code>. This will make <code>rpdb</code> listen on all addresses rather than just localhost. This is less secure, but required in order to reach it through k8s. Once again, I'll edit the <code>demoapp/__init__.py</code>&nbsp;file on my laptop:</p>
+<pre class="nums:false nums-toggle:false lang:python mark:3 decode:true crayon-selected">        self.end_headers()
+        RESPONSE='''Edited code'''
+        import rpdb; rpdb.set_trace('0.0.0.0')
+        self.wfile.write(bytes(RESPONSE, 'UTF-8'))</pre>
+<p>I also need to&nbsp;update my k8s Service&nbsp;to expose the new port. Rpdb will listen on port <code>4444</code>&nbsp;by default, so I'll&nbsp;use that in my&nbsp;service. First I'll delete the existing <code>demoapp</code>&nbsp;service and then re-create it adding a second port:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl delete service demoapp
+service "demoapp" deleted
+
+$ kubectl create service nodeport demoapp --tcp=8000 --tcp=4444
+service "demoapp" created
+
+$ kubectl get services
+NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)                         AGE
+demoapp      10.0.0.145   <nodes>       8000:31661/TCP,4444:30611/TCP   0s
+kubernetes   10.0.0.1     <none>        443/TCP                         1d</pre>
+<p>I can test that the new service works by using <code>curl</code>&nbsp;to the new port:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ curl http://192.168.64.3:31661
+Edited code%</pre>
+<p>Now that the code is edited and the service is created to forward ports through, I&nbsp;can restart the&nbsp;container.&nbsp;Once again I'll delete the running pod to trigger the creation of a replacement.</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ kubectl get pods
+NAME                       READY     STATUS    RESTARTS   AGE
+demoapp-2344086337-c6qth   1/1       Running   0          17m
+
+$ kubectl delete pod demoapp-2344086337-c6qth
+pod "demoapp-2344086337-c6qth" deleted
+
+$ kubectl get pods
+NAME                       READY     STATUS        RESTARTS   AGE
+demoapp-2344086337-c6qth   1/1       Terminating   0          18m
+demoapp-2344086337-mvh0g   1/1       Running       0          0s</pre>
+<p>Since my breakpoint is inside the <code>do_GET</code>&nbsp;function, I'll need to use <code>curl</code>&nbsp;to initiate a <code>GET</code> request. This will seem to hang in the terminal, as the break point has been reached and execution is waiting. At this point, I should be able to connect to the waiting debugger,&nbsp;&nbsp;using the Service&nbsp;information to determine which port to connect to. In another terminal I can use <code>nc</code>&nbsp;to connect&nbsp;to the debugger! From this point on, it's debugging as usual.</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ curl http://192.168.64.3:31661
+_
+---------------------------------------
+
+$ nc 192.168.64.3 30611
+> /demoapp/demoapp/__init__.py(11)do_GET()
+-> self.wfile.write(bytes(RESPONSE, 'UTF-8'))
+(Pdb) l
+  6  	        self.send_response(200)
+  7  	        self.send_header('Content-type', 'text/html')
+  8  	        self.end_headers()
+  9  	        RESPONSE='''Edited code'''
+ 10  	        import rpdb; rpdb.set_trace('0.0.0.0')
+ 11  ->	        self.wfile.write(bytes(RESPONSE, 'UTF-8'))
+ 12
+ 13  	def run(server_class=http.server.HTTPServer, handler_class=myHandlers):
+ 14  	    server_address = ('', 8000)
+ 15  	    myserver = server_class(server_address, handler_class)
+ 16  	    myserver.serve_forever()
+(Pdb)</pre>
+<p>From here I can change the value of <code>RESPONSE</code>&nbsp;once more, and then continue execution, which should cause my <code>curl</code>&nbsp;command to return with my new message:</p>
+<pre class="nums:false nums-toggle:false lang:sh decode:true">$ curl http://192.168.64.3:31661
+Live debugging sure is fun!%
+
+----------------------------------
+
+ 16  	    myserver.serve_forever()
+(Pdb) RESPONSE='''Live debugging sure is fun!'''
+(Pdb) c
+_</pre>
+<h3>Conclusion</h3>
+<p>Kuberetes is a pretty huge leap forward in container orchestration. With that advancement comes some complexity, and a whole lot of new concepts to learn. However, the basic building blocks are there to continue using workflows that have been useful in the past. This workflow to debug code live is just a small example of what is possible with k8s, minikube, and containers in general.</p>
+<p>I've added a complete <a href="https://github.com/j2sol/demoapp/blob/master/demoapp-deployment.yaml"><code>demoapp-deployment.yaml</code></a>&nbsp;file to the git repository, including a Service definition. Hopefully this example will be useful! As always, comment here or on <a href="https://twitter.com/iamjkeating">Twitter</a> should you have any thoughts to share.</p>
+<p>Happy kubing!</p>

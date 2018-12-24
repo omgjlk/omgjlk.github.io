@@ -1,0 +1,34 @@
+---
+layout: post
+status: publish
+published: true
+title: 11 files changed, 87 insertions(+), 97 deletions(-)
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 18
+wordpress_url: https://derpops.bike/?p=18
+date: '2012-06-08 05:56:00 +0000'
+date_gmt: '2012-06-08 05:56:00 +0000'
+categories:
+- Red Hat
+tags: []
+comments: []
+---
+<p>I've just posted my largest change to the installer code base yet.&nbsp; This pile of changes moves some functionality out of the installer itself and into the pre-exec environment of dracut and systemd.</p>
+<p>For a while now, anaconda has had the ability to fire up an sshd server in the install environment.&nbsp; It's useful to be able to ssh into the system as it's being installed and poke around on the shell.&nbsp; Doubly useful when doing remote installs of headless systems.&nbsp; Required for doing installs on systems that have crap for a (remote) console like s390x.&nbsp;</p>
+<p>Anaconda had 2 ways of bringing up sshd, on s390x a replacement for /sbin/init would get ran and bring up the sshd server automatically.&nbsp; But on other arches it was up to anaconda itself to bring up the ssh server, if the "sshd" boot option was encountered.&nbsp; Along with the sshd boot argument there was a kickstart argument "<a href="http://fedoraproject.org/wiki/Anaconda/Kickstart#sshpw" target="_blank">sshpw</a>" that would get handled to set a password for the user(s) who could log in via ssh.&nbsp; Of course, s390x couldn't make use of this because sshd was started prior to anaconda, and in fact, anaconda wouldn't start until somebody ssh'd in as the "install" user.&nbsp; Hurray for differences!</p>
+<p>Now that we've got systemd bringing things up and anaconda isn't "init" any more , it's just a service and target, we can do some fun things.&nbsp; We can create our own anaconda-sshd.service to go along with our own sshd config specific to anaconda.&nbsp; We can use a <a href="http://www.freedesktop.org/wiki/Software/systemd/Generators" target="_blank">systemd generator</a> to look for "inst.sshd" boot argument (all anaconda boot args were renamed to start with inst. in F17) or s390x arch and if found make the anaconda-sshd.service be a part of the anaconda.target.&nbsp; The anaconda-sshd.service makes use of an ExecStartPre script to parse the "sshpw" kickstart line (if it exists) and setup users/passwords accordingly, before sshd itself is brought up.</p>
+<p>This accomplishes a few goals:
+<ul>
+<li>ssh bring up is the same on s390x vs other arches</li>
+<li>passwords are configurable for s390x just like other arches</li>
+<li>anaconda code doesn't have to deal with service bring up</li>
+<li>gets us closer to s390x bring up without having to replace init</li>
+<li>results in net-negative code in the repository </li>
+</ul>
+<p>So that code has been posted, ready for my peers to find all the holes in my logic and errors in my programming.&nbsp; It's a significant enough change though that it feels a lot more like contributing as part of the team as opposed to the occasional run-by patching I've done before as part of other teams.</p>

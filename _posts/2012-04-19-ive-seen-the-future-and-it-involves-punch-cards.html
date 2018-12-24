@@ -1,0 +1,39 @@
+---
+layout: post
+status: publish
+published: true
+title: I've seen the Future, and it involves punch cards??
+author:
+  display_name: jlk
+  login: jkeating
+  email: jkeating@j2solutions.net
+  url: ''
+author_login: jkeating
+author_email: jkeating@j2solutions.net
+wordpress_id: 22
+wordpress_url: https://derpops.bike/?p=22
+date: '2012-04-19 02:15:00 +0000'
+date_gmt: '2012-04-19 02:15:00 +0000'
+categories:
+- navel-gazing
+- Red Hat
+tags: []
+comments:
+- id: 2
+  author: Nicu Buculei
+  author_email: noreply@blogger.com
+  author_url: http://www.blogger.com/profile/11787116898361050437
+  date: '2012-04-19 10:39:29 +0000'
+  date_gmt: '2012-04-19 10:39:29 +0000'
+  content: you laid all your past adventures is such a way that you made people think
+    "shit! he's also leaving the project?" and then the relief "oh well, at the installer
+    team" :)
+---
+<p>I've now been working for Red Hat for roughly 6.5 years.&nbsp; That's a long time!&nbsp; I started out doing Release Engineering work for our internal Fedora project, somewhere around Fedora Core 5.&nbsp; One of my first tasks was to script a mass rebuild of all our packages for a new compiler and point out to people when their software failed to build.&nbsp; As an eager new employee I spend some time on the weekend sending out build failure reports (by hand) to one of our development mailing lists, and a funny thing happened.&nbsp; The CEO of the company (at the time Matthew Szulik) replied to one of my reports directly to me, saying that he was pleased to see somebody else burning the weekend hours.&nbsp; The C, E, Freaking, O!&nbsp; How cool was that??</p>
+<p>Fast forward a release or two and now I'm helping to move Fedora out of Red Hat and into the world at large as a "Community Driven" project.&nbsp; Basically get our sources and build system to where more than just Red Hat employees can touch.&nbsp; This required a lot of careful thought, planning, and political smooth talking but we made it happen.&nbsp; A great group of engineers and managers all saw the greater potential for Fedora if we could just free it from the Mother Ship and worked very hard to convince other people and create software and infrastructure to make it happen.&nbsp; My role changed a bit at that time from just another release engineer to more of a group leader, a group of volunteers who wanted to help out with the tasks related to getting a Fedora release made.</p>
+<p>Fast forward again a larger number of releases and we'll get to about 2 years ago.&nbsp; A FUDCon was about to start in "Toronto" CA and a big group of folks were on a chartered bus riding from "Boston" to the FUDCon event.&nbsp; As geeks do when stuck in a small space around other geeks, we talked about geeky things.&nbsp; The geeky thing that had been on my mind for a while now was trying to get Fedora sources moved out of an aging CVS based setup with buildsystem integration by way of various data files and Makefiles onto something a bit more.... modern.&nbsp; Anybody paying any sort of attention to source control systems in the past few years will have noticed a sharp uptick in the adoption of a new source control system called git.&nbsp; We desperately wanted to use git to manage Fedora package sources, and I desperately wanted to use something other than Makefiles to interact with the system and so we spent a good part of that ride throwing ideas around.&nbsp; Certainly not the first time we've done this, but something happened to click on that ride and half a plan was formed.&nbsp; There certainly is something magical about getting a group of people together and then removing a lot of the outside distraction, just to see what kind of awesome can be cooked up.</p>
+<p>For the next 2 years or so I worked on first getting Fedora moved into git and replacing Makefiles with a python library and application, followed by doing the same for a much more complicated internal setup at Red Hat for all of Red Hat's products.&nbsp; The work on the latter is now (mostly) done and I had to make a decision.&nbsp; Did I want to keep working on Release Engineering type stuff, as I had for the previous 6.5~ years, or was I ready for something new?&nbsp; I certainly felt ready for something new.&nbsp; There is nothing wrong with releng work, I quite enjoyed it and I really liked the team I worked on, but 6 years is a long time for a geek to be focused on one type of work.&nbsp; So I looked around Red Hat to see if anything else was interesting to me, and I found an opportunity within the Installer team.</p>
+<p>The Installer team primarily develops and maintains Anaconda, the software used to install Fedora and Red Hat Enterprise Linux (and it's many rebuilds) onto computers.&nbsp; There is a variety of other software involved, all playing supporting roles, but Anaconda is certainly the star of the show.&nbsp; As of Monday the 16th I've been the newest member on the Installer team.</p>
+<p>What I'll be doing there is still being worked out; It depends somewhat on what interests me and what needs are there.&nbsp; Getting to the title of this entry, one of my first tasks is to get up to speed on IBM Z hardware (s390x).&nbsp; The team needs more than one person to have knowledge of how our software (installer and the OS) is brought up on these systems.&nbsp; I learned that even though IBM has been making new Z systems in recent years, they /still/ make use of a stack of virtual punch cards spooled into a virtual reader to allocate resources for an OS to come up.&nbsp; That's right, it's 2012, I'm looking into the future of my work here at Red Hat and I'm learning about punch cards.&nbsp; WAT?</p>
+<p>I'll still be involved a bit with source control management for Fedora/RHEL, and may make some new features and fix bugs in the software we use to interact with git and our build systems, at least until we find a new sucker^w engineer to take on those responsibilities.&nbsp; But now instead of writing software that our developers make use of, I'll be writing software that our /customers/ make use of and that's both scary and very exciting!</p>
+<p>I hope to blog a bit more often about my Adventures in Installer Land, thoughts and observations that are going to require more than 140 chars.&nbsp; For now, back to the punch cards!</p>
