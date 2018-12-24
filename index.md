@@ -8,10 +8,22 @@ I'm Jesse Keating, a Datacenter Engineer with GitHub. When I'm not a the compute
 
 I'm also on Twitter as [@iamjkeating](https://twitter.com/iamjkeating).
 
-<ul>
-  {% for post in site.posts %}
+{%- if site.posts.size > 0 -%}
+<h2 class="post-list-heading">{{ page.list_title | default: "Posts" }}</h2>
+<ul class="post-list">
+    {%- for post in site.posts -%}
     <li>
-      <a href="{{ post.url }}">{{ post.title }} {{ post.date }}</a>
+    {%- assign date_format = "%b %-d, %Y" -%}
+    <span class="post-meta">{{ post.date | date: date_format }}</span>
+    <h3>
+        <a class="post-link" href="{{ post.url | relative_url }}">
+        {{ post.title | escape }}
+        </a>
+    </h3>
+    {%- if site.show_excerpts -%}
+        {{ post.excerpt }}
+    {%- endif -%}
     </li>
-  {% endfor %}
+    {%- endfor -%}
 </ul>
+{%- endif -%}
