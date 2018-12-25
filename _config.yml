@@ -14,3 +14,4 @@ author:
   instagram: j2sol
 plugins:
   - jekyll-feed
+  - jekyll-redirect-from
