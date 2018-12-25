@@ -7,3 +7,10 @@ url: https://omgjlk.github.io
 twitter_username: iamjkeating
 github_username: omgjlk
 show_excerpts: true
+authors: 
+author:
+  name: Jesse Keating
+  twitter: iamjkeating
+  instagram: j2sol
+plugins:
+  - jekyll-feed
