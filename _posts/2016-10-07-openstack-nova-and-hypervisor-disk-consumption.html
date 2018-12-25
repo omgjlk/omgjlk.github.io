@@ -15,6 +15,7 @@ categories:
 - OpenStack
 tags: []
 comments: []
+redirect_from: /2016/10/07/openstack-nova-and-hypervisor-disk-consumption
 ---
 <p>Recently I found myself in a situation at $DAYJOB where I needed to account for the local disk consumption of a nova-compute node, a hypervisor. I had a heck of a time gathering all the information I needed to figure out why the space was being consumed the way it was, and since I couldn't find a single source for all this information I felt it was best to write up a post about it (so that I can find it next time I'm in the same scenario).</p>
 <p>This post&nbsp;explores the various ways Nova consumes hypervisor disk space with regard to instance images and booting.</p>
